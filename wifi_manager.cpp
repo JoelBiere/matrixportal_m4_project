@@ -1,9 +1,6 @@
 #include "wifi_manager.h"
-#include "matrix_display.h" 
-
-// WiFi credentials (defined here, declared in config.h)
-char ssid[] = "Paul Revere";
-char pass[] = "theBritisharecoming";
+#include "matrix_display.h"
+#include "credentials.h"
 
 void initializeWiFi() {
   Serial.println("Initializing WiFi...");
@@ -20,8 +17,8 @@ void initializeWiFi() {
   connectToWiFi();
   
   if (wifiStatus == WL_CONNECTED) {
-    server.begin();
-    printWifiStatus();
+    // server.begin(); // should now be handled in web_server.cpp
+    printWiFiStatus();
     showMatrixIPAddress();
     Serial.println("Web server started successfully");
   } else {
@@ -32,7 +29,6 @@ void initializeWiFi() {
 void connectToWiFi() {
   Serial.print("Connecting to: ");
   Serial.println(ssid);
-  
   wifiStatus = WL_IDLE_STATUS;
   int attempts = 0;
   
@@ -69,7 +65,7 @@ void scanNetworks() {
   }
 }
 
-void printWifiStatus() {
+void printWiFiStatus() {
   Serial.print("SSID: ");
   Serial.println(WiFi.SSID());
   Serial.print("IP: ");
@@ -77,6 +73,17 @@ void printWifiStatus() {
   Serial.print("Signal: ");
   Serial.print(WiFi.RSSI());
   Serial.println(" dBm");
+}
+
+bool isWiFiConnected() {
+  return wifiStatus == WL_CONNECTED;
+}
+
+void handleWiFiReconnection() {
+  if (wifiStatus != WL_CONNECTED) {
+    Serial.println("WiFi disconnected, attempting reconnection...");
+    connectToWiFi();
+  }
 }
 
 String getWiFiStatusString(int status) {

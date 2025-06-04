@@ -1,19 +1,28 @@
 #ifndef WIDGETS_H
 #define WIDGETS_H
 
-#include "config.h"
+#include "hardware_config.h"
 
+// Widget types for upper quadrants
 enum WidgetType {
-  WIDGET_NONE = 0,
-  WIDGET_CLOCK = 1,
-  WIDGET_WEATHER = 2,
-  WIDGET_TEAMS = 3,
-  WIDGET_STOCKS = 4
+  WIDGET_CLOCK = 0,
+  WIDGET_WEATHER = 1,
+  WIDGET_TEMPERATURE = 2,
+  WIDGET_COUNTER = 3,
+  WIDGET_STATUS = 4,
+  WIDGET_TEAMS = 5,
+  WIDGET_STOCKS = 6,
+  WIDGET_NONE = 7
 };
+
+// Simple widget variables
+extern WidgetType topLeftWidget;
+extern WidgetType topRightWidget;
+extern bool widgetsEnabled;
 
 // Widget data structures
 struct WeatherData {
-  String city;
+  String location;
   int temperature;
   String condition;
   String icon;
@@ -21,8 +30,8 @@ struct WeatherData {
 };
 
 struct TeamsData {
-  String status;        // "Available", "Busy", "Away", "In Meeting"
-  String statusMessage;
+  String status;
+  String details;
   uint16_t statusColor;
   uint32_t lastUpdate;
 };
@@ -35,12 +44,6 @@ struct StockData {
   uint32_t lastUpdate;
 };
 
-
-// Widget configuration
-extern WidgetType topLeftWidget;
-extern WidgetType topRightWidget;
-extern bool widgetsEnabled;
-
 extern WeatherData currentWeather;
 extern TeamsData currentTeams;
 extern StockData currentStock;
@@ -49,26 +52,23 @@ extern StockData currentStock;
 void initializeWidgets();
 void updateWidgets();
 void drawWidget(WidgetType widget, int x, int y, int width, int height);
-
-// Individual widget drawing functions
 void drawClockWidget(int x, int y, int width, int height);
 void drawWeatherWidget(int x, int y, int width, int height);
 void drawTeamsWidget(int x, int y, int width, int height);
 void drawStocksWidget(int x, int y, int width, int height);
 
-// Widget data update functions
-void updateWeatherData();
-void updateTeamsData();
-void updateStockData();
-
-// Web interface functions
+// Widget setters
 void setTopLeftWidget(WidgetType widget);
 void setTopRightWidget(WidgetType widget);
 void toggleWidgets();
 
-// Utility functions
-String formatTime(bool show24Hour = false);
-uint16_t getStatusColor(String status);
-void drawSmallText(int x, int y, String text, uint16_t color);
+// Data update functions
+void updateWeatherData();
+void updateTeamsData();
+void updateStockData();
 
-#endif // WIDGETS_H
+// Helper functions
+String formatTime(bool is24Hour);
+uint16_t getStatusColor(String status);
+
+#endif

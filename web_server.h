@@ -1,10 +1,14 @@
 #ifndef WEB_SERVER_H
 #define WEB_SERVER_H
 
-#include "config.h"
+#include <WiFiNINA.h>
+#include "display_modes.h"
 #include "widgets.h"
 
-// Function declarations
+// Web server object
+extern WiFiServer server;
+
+// Web server functions
 void initializeWebServer();
 void handleWebClients();
 void handleWebClient(WiFiClient client);

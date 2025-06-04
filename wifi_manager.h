@@ -1,13 +1,19 @@
 #ifndef WIFI_MANAGER_H
 #define WIFI_MANAGER_H
 
-#include "config.h"
+#include <WiFiNINA.h>
 
-// Function declarations
+// WiFi credentials - move these to a separate credentials file
+extern char ssid[];
+extern char pass[];
+extern int wifiStatus;
+
+// WiFi management functions
 void initializeWiFi();
 void connectToWiFi();
+void printWiFiStatus();
+bool isWiFiConnected();
+void handleWiFiReconnection();
 void scanNetworks();
-void printWifiStatus();
-String getWiFiStatusString(int status);
 
 #endif

@@ -1,12 +1,11 @@
-// widgets.cpp - Add this as a new file
-
 #include "config.h"
 #include "widgets.h"
+#include "matrix_display.h"
 
-// Widget configuration variables
+// Widget state variables
 WidgetType topLeftWidget = WIDGET_CLOCK;
 WidgetType topRightWidget = WIDGET_WEATHER;
-bool widgetsEnabled = true;
+bool widgetsEnabled = false;
 
 // Widget data
 WeatherData currentWeather = {"Memphis", 72, "Sunny", "☀", 0};
@@ -14,9 +13,8 @@ TeamsData currentTeams = {"Available", "", 0x07E0, 0}; // Green
 StockData currentStock = {"AAPL", 150.25, 2.50, true, 0};
 
 void initializeWidgets() {
-  Serial.println("Initializing smart widgets...");
+  Serial.println("Initializing widgets...");
   
-  // Initialize widget data
   currentWeather.lastUpdate = 0;
   currentTeams.lastUpdate = 0;
   currentStock.lastUpdate = 0;
@@ -29,20 +27,22 @@ void updateWidgets() {
   
   uint32_t now = millis();
   
-  // Update widget data periodically
+  // Update weather every 10 minutes
   if (now - currentWeather.lastUpdate > 600000) { // 10 minutes
     updateWeatherData();
   }
   
+  // Update teams every 30 seconds
   if (now - currentTeams.lastUpdate > 30000) { // 30 seconds
     updateTeamsData();
   }
   
+  // Update stocks every 1 minute
   if (now - currentStock.lastUpdate > 60000) { // 1 minute
     updateStockData();
   }
   
-  // Draw widgets on display
+  // Draw the widgets
   drawWidget(topLeftWidget, 0, 0, 32, 16);      // Top left quadrant
   drawWidget(topRightWidget, 32, 0, 32, 16);    // Top right quadrant
 }
@@ -63,166 +63,123 @@ void drawWidget(WidgetType widget, int x, int y, int width, int height) {
       break;
     case WIDGET_NONE:
     default:
-      // Draw empty widget area
-      matrix.fillRect(x, y, width, height, matrix.color565(20, 20, 20));
+      // Draw nothing or blank space
       break;
   }
-  
-  // Draw widget border
-  matrix.drawRect(x, y, width, height, matrix.color565(100, 100, 100));
 }
 
 void drawClockWidget(int x, int y, int width, int height) {
-  // Clear widget area
-  matrix.fillRect(x + 1, y + 1, width - 2, height - 2, matrix.color565(0, 0, 50));
-  
-  // Get current time (simplified - you'd get real time from NTP)
-  String timeStr = formatTime(false); // 12-hour format
-  String dateStr = "12/25"; // You'd get real date
-  
-  // Draw time
-  matrix.setTextColor(matrix.color565(255, 255, 255));
+  matrix.setCursor(x, y + 8);
+  matrix.setTextColor(0x001F); // Blue
   matrix.setTextSize(1);
-  matrix.setCursor(x + 2, y + 3);
-  matrix.print(timeStr);
   
-  // Draw date
-  matrix.setTextColor(matrix.color565(200, 200, 200));
-  matrix.setCursor(x + 2, y + 11);
-  matrix.print(dateStr);
+  // Get current time (placeholder - you'll need to implement actual time)
+  uint32_t now = millis();
+  int hours = (now / 3600000) % 24;
+  int minutes = (now / 60000) % 60;
+  
+  String timeStr = formatTime(false); // 12-hour format
+  matrix.print(timeStr);
+}
+
+String formatTime(bool is24Hour) {
+  // Placeholder implementation
+  uint32_t now = millis();
+  int hours = (now / 3600000) % 24;
+  int minutes = (now / 60000) % 60;
+  
+  if (!is24Hour) {
+    bool isPM = hours >= 12;
+    if (hours > 12) hours -= 12;
+    if (hours == 0) hours = 12;
+    return String(hours) + ":" + (minutes < 10 ? "0" : "") + String(minutes) + (isPM ? "P" : "A");
+  } else {
+    return String(hours) + ":" + (minutes < 10 ? "0" : "") + String(minutes);
+  }
 }
 
 void drawWeatherWidget(int x, int y, int width, int height) {
-  // Clear widget area
-  matrix.fillRect(x + 1, y + 1, width - 2, height - 2, matrix.color565(0, 30, 50));
-  
-  // Draw temperature
-  matrix.setTextColor(matrix.color565(255, 255, 100));
+  matrix.setCursor(x, y + 8);
+  matrix.setTextColor(0xFFE0); // Yellow
   matrix.setTextSize(1);
-  matrix.setCursor(x + 2, y + 3);
-  matrix.print(String(currentWeather.temperature) + "F");
   
-  // Draw condition
-  matrix.setTextColor(matrix.color565(200, 200, 255));
-  matrix.setCursor(x + 2, y + 11);
-  matrix.print(currentWeather.condition.substring(0, 6)); // Truncate to fit
+  // Show temperature
+  matrix.print(String(currentWeather.temperature) + "F");
 }
 
 void drawTeamsWidget(int x, int y, int width, int height) {
-  // Clear widget area with status color background
-  uint16_t bgColor = matrix.color565(
+  uint16_t dimColor = matrix.color565(
     ((currentTeams.statusColor >> 11) & 0x1F) << 1,  // Dim red
-    ((currentTeams.statusColor >> 5) & 0x3F) << 0,   // Dim green  
+    ((currentTeams.statusColor >> 5) & 0x3F) << 1,   // Dim green  
     (currentTeams.statusColor & 0x1F) << 1            // Dim blue
   );
-  matrix.fillRect(x + 1, y + 1, width - 2, height - 2, bgColor);
   
-  // Draw status
-  matrix.setTextColor(matrix.color565(255, 255, 255));
+  matrix.setCursor(x, y + 8);
+  matrix.setTextColor(dimColor);
   matrix.setTextSize(1);
-  matrix.setCursor(x + 2, y + 3);
-  matrix.print("TEAMS");
   
-  matrix.setCursor(x + 2, y + 11);
-  if (currentTeams.status == "Available") {
-    matrix.print("FREE");
-  } else if (currentTeams.status == "Busy" || currentTeams.status == "In Meeting") {
-    matrix.print("BUSY");
-  } else {
-    matrix.print("AWAY");
+  // Show first few characters of status
+  String displayText = currentTeams.status;
+  if (displayText.length() > 8) {
+    displayText = displayText.substring(0, 8);
   }
+  matrix.print(displayText);
 }
 
 void drawStocksWidget(int x, int y, int width, int height) {
-  // Clear widget area
-  matrix.fillRect(x + 1, y + 1, width - 2, height - 2, matrix.color565(30, 30, 30));
-  
-  // Draw stock symbol
-  matrix.setTextColor(matrix.color565(255, 255, 255));
+  matrix.setCursor(x, y + 4);
+  matrix.setTextColor(currentStock.isUp ? 0x07E0 : 0xF800); // Green if up, red if down
   matrix.setTextSize(1);
-  matrix.setCursor(x + 2, y + 3);
+  
+  // Show symbol on first line
   matrix.print(currentStock.symbol);
   
-  // Draw price with color based on change
-  uint16_t priceColor = currentStock.isUp ? 
-    matrix.color565(0, 255, 0) : matrix.color565(255, 0, 0);
-  matrix.setTextColor(priceColor);
-  matrix.setCursor(x + 2, y + 11);
-  matrix.print("$" + String(currentStock.price, 0));
+  // Show price on second line
+  matrix.setCursor(x, y + 12);
+  matrix.print("$" + String(currentStock.price, 1));
 }
 
-// Data update functions (simplified - you'd call real APIs)
 void updateWeatherData() {
-  Serial.println("Updating weather data...");
-  // Here you'd make an HTTP request to weather API
-  // For now, just simulate data
+  // Simulate weather data update
   currentWeather.temperature = random(65, 85);
   currentWeather.lastUpdate = millis();
+  Serial.println("Weather data updated");
 }
 
 void updateTeamsData() {
-  Serial.println("Updating Teams data...");
-  // Here you'd call Microsoft Graph API
-  // For now, simulate status changes
-  String statuses[] = {"Available", "Busy", "Away", "In Meeting"};
+  // Simulate teams status update
+  String statuses[] = {"Available", "In Meeting", "Busy", "Away"};
   currentTeams.status = statuses[random(0, 4)];
   currentTeams.statusColor = getStatusColor(currentTeams.status);
   currentTeams.lastUpdate = millis();
-}
-
-void updateStockData() {
-  Serial.println("Updating stock data...");
-  // Here you'd call stock API
-  // For now, simulate price changes
-  currentStock.change = random(-500, 500) / 100.0; // -5.00 to +5.00
-  currentStock.price += currentStock.change;
-  currentStock.isUp = currentStock.change >= 0;
-  currentStock.lastUpdate = millis();
-}
-
-// Utility functions
-String formatTime(bool show24Hour) {
-  // Simplified - you'd use real time library
-  static int hour = 9;
-  static int minute = 30;
-  static uint32_t lastUpdate = 0;
-  
-  if (millis() - lastUpdate > 60000) { // Update every minute
-    minute++;
-    if (minute >= 60) {
-      minute = 0;
-      hour++;
-      if (hour >= (show24Hour ? 24 : 13)) {
-        hour = show24Hour ? 0 : 1;
-      }
-    }
-    lastUpdate = millis();
-  }
-  
-  String timeStr = String(hour) + ":" + (minute < 10 ? "0" : "") + String(minute);
-  if (!show24Hour) {
-    timeStr += (hour >= 12) ? "P" : "A";
-  }
-  return timeStr;
+  Serial.println("Teams data updated");
 }
 
 uint16_t getStatusColor(String status) {
-  if (status == "Available") return matrix.color565(0, 255, 0);     // Green
-  if (status == "Busy") return matrix.color565(255, 0, 0);          // Red
-  if (status == "Away") return matrix.color565(255, 255, 0);        // Yellow
-  if (status == "In Meeting") return matrix.color565(255, 0, 0);    // Red
-  return matrix.color565(128, 128, 128);                            // Gray
+  if (status == "Available") return 0x07E0;     // Green
+  if (status == "Busy") return 0xF800;          // Red
+  if (status == "Away") return 0xFFE0;          // Yellow
+  return 0x001F;                                // Blue for "In Meeting"
 }
 
-// Web interface functions
+void updateStockData() {
+  // Simulate stock data update
+  currentStock.change = random(-500, 500) / 100.0; // -5.00 to +5.00
+  currentStock.isUp = currentStock.change >= 0;
+  currentStock.price += currentStock.change;
+  if (currentStock.price < 50) currentStock.price = 50; // Minimum price
+  currentStock.lastUpdate = millis();
+  Serial.println("Stock data updated");
+}
+
 void setTopLeftWidget(WidgetType widget) {
   topLeftWidget = widget;
-  Serial.println("Top left widget changed to: " + String(widget));
+  Serial.println("Top left widget set to: " + String(widget));
 }
 
 void setTopRightWidget(WidgetType widget) {
   topRightWidget = widget;
-  Serial.println("Top right widget changed to: " + String(widget));
+  Serial.println("Top right widget set to: " + String(widget));
 }
 
 void toggleWidgets() {
