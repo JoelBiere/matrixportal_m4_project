@@ -1,29 +1,41 @@
 #ifndef MATRIX_DISPLAY_H
 #define MATRIX_DISPLAY_H
 
-#include "config.h"
-#include "widgets.h"  // Add this include
+#include "hardware_config.h"
+#include "display_modes.h"
+#include <WiFiNINA.h>
 
-// Function declarations
+// Global variables
+extern Adafruit_Protomatter matrix;
+extern AnimationType currentAnimation;  // Changed from DisplayMode
+extern String displayText;
+extern uint16_t currentColor;
+extern int scrollPosition;
+extern uint32_t lastUpdate;
+extern int patternFrame;
+
+// Matrix management
 void initializeMatrix();
-void updateMatrixDisplay();
-void setMatrixColor(int colorIndex);
-void setMatrixPattern();
-void setMatrixText(String text);
-void clearMatrixDisplay();
-void showMatrixIPAddress();
 void testMatrix();
-void drawCompanyLogo(int x, int y);
-void setTruckAnimation();            
+void updateMatrixDisplay();
 
-// Widget stuff
-void updateSmartWidgets();
-void drawBottomZoneAnimation();
-void setSmartWidgetsMode();
-
-// Internal animation functions
+// Animation zone functions (y=15-31)
+void updateAnimationZone();
 void animatePattern();
 void scrollText();
 void animateTruck();
+void drawSolidColor();
+
+// Web interface setters
+void setAnimation(AnimationType animation);
+void setAnimationColor(int colorIndex);
+void setAnimationPattern();
+void setAnimationText(String text);
+void setTruckAnimation();
+void clearAnimationZone();
+
+// Utility functions
+void showMatrixIPAddress();
+void drawCompanyLogo(int x, int y);
 
 #endif

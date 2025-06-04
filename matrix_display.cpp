@@ -18,7 +18,318 @@ const char* colorNames[] = {
 };
 
 int truckPosition = WIDTH;
-uint32_t lastTruckUpdate = 0;
+
+void updateMatrixDisplay() {
+  static uint32_t lastDebugOutput = 0;
+  static uint32_t lastFrameUpdate = 0;
+
+  // Debug output every 2 seconds
+  if (millis() - lastDebugOutput > 2000) {
+    Serial.print("Animation: ");
+    Serial.print(currentAnimation);
+    Serial.print(", Widgets: ");
+    Serial.println(topLeftWidget + " | " + topRightWidget);
+    lastDebugOutput = millis();
+  }
+
+  // Only update display at a reasonable frame rate (60 FPS max)
+  if (millis() - lastFrameUpdate < 16) {
+    return; // Skip this frame
+  }
+  lastFrameUpdate = millis();
+
+  // Clear the entire screen first
+  matrix.fillScreen(0);
+
+  // Update widget zone (y=0-14)
+  updateWidgets();
+
+  // Update animation zone (y=15-31) based on current animation
+  updateAnimationZone();
+
+  // Show the combined result ONCE per frame
+  matrix.show();
+}
+
+void updateAnimationZone() {
+  switch (currentAnimation) {
+  case ANIMATION_PATTERN:
+    animatePattern();
+    break;
+  case ANIMATION_SCROLLING_TEXT:
+    scrollText();
+    break;
+  case ANIMATION_TRUCK:
+    animateTruck();
+    break;
+  case ANIMATION_SOLID_COLOR:
+    drawSolidColor();
+    break;
+  case ANIMATION_NONE:
+  default:
+    // Do nothing - zone stays black
+    break;
+  }
+}
+
+void drawSolidColor() {
+  // Fill only the animation zone with the current color
+  matrix.fillRect(0, ANIMATION_ZONE_Y, WIDTH, ANIMATION_ZONE_HEIGHT, currentColor);
+}
+
+void animatePattern() {
+  static uint32_t lastPatternUpdate = 0;
+
+  if (millis() - lastPatternUpdate > 150) {
+    // Draw pattern only in animation zone - NO CLEARING HERE
+    for (int x = 0; x < WIDTH; x++) {
+      for (int y = ANIMATION_ZONE_Y; y < HEIGHT; y++) {
+        int colorIndex = ((x + y + patternFrame) / 8) % 6 + 1;  // Skip black
+        uint16_t dimColor = colors[colorIndex];
+        int r = ((dimColor >> 11) & 0x1F) >> 1;  // Half brightness
+        int g = ((dimColor >> 5) & 0x3F) >> 1;
+        int b = (dimColor & 0x1F) >> 1;
+        matrix.drawPixel(x, y, matrix.color565(r << 3, g << 2, b << 3));
+      }
+    }
+    patternFrame++;
+    lastPatternUpdate = millis();
+  } else {
+    // Redraw the current pattern frame (no animation update)
+    for (int x = 0; x < WIDTH; x++) {
+      for (int y = ANIMATION_ZONE_Y; y < HEIGHT; y++) {
+        int colorIndex = ((x + y + patternFrame) / 8) % 6 + 1;
+        uint16_t dimColor = colors[colorIndex];
+        int r = ((dimColor >> 11) & 0x1F) >> 1;
+        int g = ((dimColor >> 5) & 0x3F) >> 1;
+        int b = (dimColor & 0x1F) >> 1;
+        matrix.drawPixel(x, y, matrix.color565(r << 3, g << 2, b << 3));
+      }
+    }
+  }
+}
+
+void scrollText() {
+  static uint32_t lastTextUpdate = 0;
+
+  if (millis() - lastTextUpdate > 120) {
+    scrollPosition--;
+    if (scrollPosition < -(int)(displayText.length() * 6)) {
+      scrollPosition = WIDTH;
+    }
+    lastTextUpdate = millis();
+  }
+
+  // Always draw the text at current position - NO CLEARING HERE
+  matrix.setTextWrap(false);
+  matrix.setCursor(scrollPosition, ANIMATION_ZONE_Y + (ANIMATION_ZONE_HEIGHT / 2) - 4);
+  matrix.setTextSize(1);
+  matrix.setTextColor(matrix.color565(255, 255, 255));
+  matrix.print(displayText);
+}
+
+// void animateTruck() {
+//   if (millis() - lastTruckUpdate > 80) {  // Slightly faster animation
+//     matrix.fillScreen(0);
+//
+//     // More detailed truck design
+//
+//     // Truck cab (more realistic shape)
+//     matrix.fillRect(truckPosition, 20, 10, 8, matrix.color565(0, 100, 200));     // Blue cab
+//     matrix.fillRect(truckPosition + 1, 19, 8, 6, matrix.color565(0, 150, 255));  // Lighter blue windows
+//
+//     // Cab details
+//     matrix.drawPixel(truckPosition + 2, 20, matrix.color565(200, 200, 255));  // Windshield
+//     matrix.drawPixel(truckPosition + 3, 20, matrix.color565(200, 200, 255));
+//     matrix.drawPixel(truckPosition + 4, 20, matrix.color565(200, 200, 255));
+//     matrix.drawLine(truckPosition + 5, 22, truckPosition + 5, 27, matrix.color565(0, 50, 150));  // Door line
+//
+//     // Container/trailer (larger and more detailed)
+//     matrix.fillRect(truckPosition + 10, 16, 28, 12, matrix.color565(220, 220, 220));  // Light gray container
+//     matrix.drawRect(truckPosition + 10, 16, 28, 12, matrix.color565(180, 180, 180));  // Container border
+//
+//     // Container details (corrugated sides)
+//     matrix.drawLine(truckPosition + 13, 16, truckPosition + 13, 27, matrix.color565(180, 180, 180));
+//     matrix.drawLine(truckPosition + 17, 16, truckPosition + 17, 27, matrix.color565(180, 180, 180));
+//     matrix.drawLine(truckPosition + 21, 16, truckPosition + 21, 27, matrix.color565(180, 180, 180));
+//     matrix.drawLine(truckPosition + 25, 16, truckPosition + 25, 27, matrix.color565(180, 180, 180));
+//     matrix.drawLine(truckPosition + 29, 16, truckPosition + 29, 27, matrix.color565(180, 180, 180));
+//
+//     // Company logo on container (moved further left)
+//     if (truckPosition + 12 >= -30) {
+//       drawCompanyLogo(truckPosition + 12, 18);
+//     }
+//
+//     // More realistic wheels - repositioned for longer trailer
+//     // Front wheel (cab)
+//     matrix.fillRect(truckPosition + 2, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+//     matrix.drawPixel(truckPosition + 3, 29, matrix.color565(120, 120, 120));    // Rim
+//
+//     // Middle wheel (trailer front)
+//     matrix.fillRect(truckPosition + 14, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+//     matrix.drawPixel(truckPosition + 15, 29, matrix.color565(120, 120, 120));    // Rim
+//
+//     // Back wheel (trailer rear) - moved to end of longer container
+//     matrix.fillRect(truckPosition + 28, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+//     matrix.drawPixel(truckPosition + 29, 29, matrix.color565(120, 120, 120));    // Rim
+//
+//     // Connection between cab and trailer
+//     matrix.drawLine(truckPosition + 9, 22, truckPosition + 11, 22, matrix.color565(100, 100, 100));
+//
+//     // Headlights
+//     matrix.drawPixel(truckPosition - 1, 25, matrix.color565(255, 255, 200));  // Headlight
+//     matrix.drawPixel(truckPosition - 1, 27, matrix.color565(255, 255, 200));  // Headlight
+//
+//     // Tail lights - moved to end of longer container
+//     matrix.drawPixel(truckPosition + 38, 25, matrix.color565(255, 0, 0));  // Red tail light (top)
+//     matrix.drawPixel(truckPosition + 38, 27, matrix.color565(255, 0, 0));  // Red tail light (bottom)
+//
+//     // Exhaust stack behind cab
+//     matrix.fillRect(truckPosition + 8, 17, 1, 4, matrix.color565(60, 60, 60));  // Stack body
+//     matrix.drawPixel(truckPosition + 8, 16, matrix.color565(80, 80, 80));       // Stack top
+//     matrix.drawPixel(truckPosition + 8, 15, matrix.color565(100, 100, 100));    // Stack cap
+//
+//     // exhaust smoke
+//     if (millis() % 500 < 250) {  // Flashing smoke effect
+//       matrix.drawPixel(truckPosition + 10, 13, matrix.color565(80, 80, 80));
+//       matrix.drawPixel(truckPosition + 9, 14, matrix.color565(60, 60, 60));
+//     }
+//
+//     matrix.show();
+//
+//     truckPosition -= 1;         // Slower movement for better visibility
+//     if (truckPosition < -36) {  // Truck fully off screen (adjusted for longer truck)
+//       truckPosition = WIDTH;
+//     }
+//
+//     lastTruckUpdate = millis();
+//   }
+// }
+
+void animateTruck() {
+  static uint32_t lastTruckUpdateTime = 0;
+
+  if (millis() - lastTruckUpdateTime > 80) {
+    truckPosition -= 1;
+    if (truckPosition < -36) {
+      truckPosition = WIDTH;
+    }
+    lastTruckUpdateTime = millis();
+  }
+
+  // Always draw truck at current position - NO CLEARING HERE
+  int baseY = ANIMATION_ZONE_Y + 5;
+
+   // Truck cab (more realistic shape)
+    matrix.fillRect(truckPosition, 20, 10, 8, matrix.color565(0, 100, 200));     // Blue cab
+    matrix.fillRect(truckPosition + 1, 19, 8, 6, matrix.color565(0, 150, 255));  // Lighter blue windows
+
+    // Cab details
+    matrix.drawPixel(truckPosition + 2, 20, matrix.color565(200, 200, 255));  // Windshield
+    matrix.drawPixel(truckPosition + 3, 20, matrix.color565(200, 200, 255));
+    matrix.drawPixel(truckPosition + 4, 20, matrix.color565(200, 200, 255));
+    matrix.drawLine(truckPosition + 5, 22, truckPosition + 5, 27, matrix.color565(0, 50, 150));  // Door line
+
+    // Container/trailer (larger and more detailed)
+    matrix.fillRect(truckPosition + 10, 16, 28, 12, matrix.color565(220, 220, 220));  // Light gray container
+    matrix.drawRect(truckPosition + 10, 16, 28, 12, matrix.color565(180, 180, 180));  // Container border
+
+    // Container details (corrugated sides)
+    matrix.drawLine(truckPosition + 13, 16, truckPosition + 13, 27, matrix.color565(180, 180, 180));
+    matrix.drawLine(truckPosition + 17, 16, truckPosition + 17, 27, matrix.color565(180, 180, 180));
+    matrix.drawLine(truckPosition + 21, 16, truckPosition + 21, 27, matrix.color565(180, 180, 180));
+    matrix.drawLine(truckPosition + 25, 16, truckPosition + 25, 27, matrix.color565(180, 180, 180));
+    matrix.drawLine(truckPosition + 29, 16, truckPosition + 29, 27, matrix.color565(180, 180, 180));
+
+    // Company logo on container (moved further left)
+    if (truckPosition + 12 >= -30) {
+      drawCompanyLogo(truckPosition + 12, 18);
+    }
+
+    // More realistic wheels - repositioned for longer trailer
+    // Front wheel (cab)
+    matrix.fillRect(truckPosition + 2, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+    matrix.drawPixel(truckPosition + 3, 29, matrix.color565(120, 120, 120));    // Rim
+
+    // Middle wheel (trailer front)
+    matrix.fillRect(truckPosition + 14, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+    matrix.drawPixel(truckPosition + 15, 29, matrix.color565(120, 120, 120));    // Rim
+
+    // Back wheel (trailer rear) - moved to end of longer container
+    matrix.fillRect(truckPosition + 28, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
+    matrix.drawPixel(truckPosition + 29, 29, matrix.color565(120, 120, 120));    // Rim
+
+    // Connection between cab and trailer
+    matrix.drawLine(truckPosition + 9, 22, truckPosition + 11, 22, matrix.color565(100, 100, 100));
+
+    // Headlights
+    matrix.drawPixel(truckPosition - 1, 25, matrix.color565(255, 255, 200));  // Headlight
+    matrix.drawPixel(truckPosition - 1, 27, matrix.color565(255, 255, 200));  // Headlight
+
+    // Tail lights - moved to end of longer container
+    matrix.drawPixel(truckPosition + 38, 25, matrix.color565(255, 0, 0));  // Red tail light (top)
+    matrix.drawPixel(truckPosition + 38, 27, matrix.color565(255, 0, 0));  // Red tail light (bottom)
+
+    // Exhaust stack behind cab
+    matrix.fillRect(truckPosition + 8, 17, 1, 4, matrix.color565(60, 60, 60));  // Stack body
+    matrix.drawPixel(truckPosition + 8, 16, matrix.color565(80, 80, 80));       // Stack top
+    matrix.drawPixel(truckPosition + 8, 15, matrix.color565(100, 100, 100));    // Stack cap
+
+    // exhaust smoke
+    if (millis() % 500 < 250) {  // Flashing smoke effect
+      matrix.drawPixel(truckPosition + 10, 13, matrix.color565(80, 80, 80));
+      matrix.drawPixel(truckPosition + 9, 14, matrix.color565(60, 60, 60));
+    }
+
+}
+
+
+// Web interface setters
+void setAnimationColor(int colorIndex) {
+  if (colorIndex >= 0 && colorIndex < 8) {
+    currentAnimation = ANIMATION_SOLID_COLOR;
+    currentColor = colors[colorIndex];
+    Serial.printf("Animation color: %s (0x%04X)\n", colorNames[colorIndex], currentColor);
+  }
+}
+
+void setAnimationPattern() {
+  currentAnimation = ANIMATION_PATTERN;
+  patternFrame = 0;
+  Serial.println("Pattern animation activated");
+}
+
+void setAnimationText(String text) {
+  displayText = text;
+  currentAnimation = ANIMATION_SCROLLING_TEXT;
+  scrollPosition = WIDTH;
+  Serial.println("Text animation: " + displayText);
+}
+
+void setTruckAnimation() {
+  currentAnimation = ANIMATION_TRUCK;
+  truckPosition = WIDTH;
+  Serial.println("Truck animation activated");
+}
+
+void clearAnimationZone() {
+  currentAnimation = ANIMATION_NONE;
+  Serial.println("Animation zone cleared");
+}
+
+
+// Keep existing functions...
+void drawCompanyLogo(int x, int y) {
+  matrix.fillRect(x, y, 8, 5, matrix.color565(0, 180, 0));
+  matrix.fillRect(x + 1, y + 5, 6, 1, matrix.color565(0, 180, 0));
+  matrix.fillRect(x + 3, y + 6, 2, 1, matrix.color565(0, 180, 0));
+
+  matrix.setTextColor(matrix.color565(0, 0, 0));
+  matrix.setTextSize(1);
+  matrix.setTextWrap(false);
+  matrix.setCursor(x + 8, y);
+  matrix.print("IMC");
+}
 
 void initializeMatrix() {
   Serial.println("Initializing LED matrix...");
@@ -86,122 +397,6 @@ void testMatrix() {
   Serial.println("Matrix test complete");
 }
 
-void updateMatrixDisplay() {
-  static uint32_t lastDebugOutput = 0;
-  
-  // Debug output every 2 seconds
-  if (millis() - lastDebugOutput > 2000) {
-    Serial.print("updateMatrixDisplay() - currentDisplayMode: ");
-    Serial.println(currentDisplayMode);
-    lastDebugOutput = millis();
-  }
-  
-  switch (currentDisplayMode) {
-    case PATTERN:
-      animatePattern();
-      break;
-    case SCROLLING_TEXT:
-      scrollText();
-      break;
-    case TRUCK_ANIMATION:
-      animateTruck();
-      break;
-    case SMART_WIDGETS:
-      updateSmartWidgets();
-      break;
-    case SOLID_COLOR:
-    default:
-      // Solid color mode - no animation needed
-      break;
-  }
-}
-
-// New function for smart widgets mode
-void updateSmartWidgets() {
-  // Clear the display
-  matrix.fillScreen(0);
-  
-  // Update and draw widgets in top zones
-  updateWidgets();
-  
-  // Draw current animation in bottom zone (y=16 to y=31)
-  // You could have a mini truck animation or other content here
-  drawBottomZoneAnimation();
-  
-  matrix.show();
-}
-
-void drawBottomZoneAnimation() {
-  // Mini truck animation in bottom 64x16 area
-  static int miniTruckPos = WIDTH;
-  static uint32_t lastMiniUpdate = 0;
-  
-  if (millis() - lastMiniUpdate > 150) {
-    // Clear bottom zone only
-    matrix.fillRect(0, 16, WIDTH, 16, matrix.color565(0, 0, 0));
-    
-    // Draw mini truck (scaled down)
-    int y = 20; // Center in bottom zone
-    
-    // Mini cab
-    matrix.fillRect(miniTruckPos, y, 6, 4, matrix.color565(0, 100, 200));
-    
-    // Mini container
-    matrix.fillRect(miniTruckPos + 6, y - 1, 12, 6, matrix.color565(220, 220, 220));
-    
-    // Mini logo
-    matrix.fillRect(miniTruckPos + 9, y, 4, 3, matrix.color565(0, 180, 0));
-    
-    // Mini wheels
-    matrix.drawPixel(miniTruckPos + 1, y + 4, matrix.color565(40, 40, 40));
-    matrix.drawPixel(miniTruckPos + 14, y + 4, matrix.color565(40, 40, 40));
-    
-    miniTruckPos -= 2;
-    if (miniTruckPos < -20) {
-      miniTruckPos = WIDTH;
-    }
-    
-    lastMiniUpdate = millis();
-  }
-}
-
-// Web interface Setters
-void setSmartWidgetsMode() {
-  currentDisplayMode = SMART_WIDGETS;
-  widgetsEnabled = true;
-  Serial.println("Smart widgets mode activated");
-}
-void setMatrixColor(int colorIndex) {
-  if (colorIndex >= 0 && colorIndex < 8) {
-    currentDisplayMode = SOLID_COLOR;
-    currentColor = colors[colorIndex];
-    matrix.fillScreen(currentColor);
-    matrix.show();
-    Serial.printf("Color: %s (0x%04X)\n", colorNames[colorIndex], currentColor);
-  }
-}
-
-void setMatrixPattern() {
-  currentDisplayMode = PATTERN;
-  patternFrame = 0;
-  Serial.println("Pattern mode activated");
-}
-
-void setMatrixText(String text) {
-  displayText = text;
-  currentDisplayMode = SCROLLING_TEXT;
-  scrollPosition = WIDTH;
-  Serial.println("Text: " + displayText);
-}
-
-void clearMatrixDisplay() {
-  currentDisplayMode = SOLID_COLOR;
-  currentColor = 0;
-  matrix.fillScreen(0);
-  matrix.show();
-  Serial.println("Display cleared");
-}
-
 void showMatrixIPAddress() {
   matrix.fillScreen(0);
   matrix.setCursor(0, 0);
@@ -228,150 +423,4 @@ void showMatrixIPAddress() {
   matrix.setTextColor(matrix.color565(255, 255, 255));
   matrix.print("READY");
   matrix.show();
-}
-
-void animatePattern() {
-  if (millis() - lastUpdate > 150) {
-    matrix.fillScreen(0);
-
-    for (int x = 0; x < WIDTH; x++) {
-      for (int y = 0; y < HEIGHT; y++) {
-        int colorIndex = ((x + y + patternFrame) / 8) % 6 + 1;  // Skip black
-        // Use dimmer colors for power savings
-        uint16_t dimColor = colors[colorIndex];
-        int r = ((dimColor >> 11) & 0x1F) >> 1;  // Half brightness
-        int g = ((dimColor >> 5) & 0x3F) >> 1;
-        int b = (dimColor & 0x1F) >> 1;
-        matrix.drawPixel(x, y, matrix.color565(r << 3, g << 2, b << 3));
-      }
-    }
-
-    matrix.show();
-    patternFrame++;
-    lastUpdate = millis();
-  }
-}
-
-void scrollText() {
-  if (millis() - lastUpdate > 120) {
-    matrix.fillScreen(0);
-    matrix.setTextWrap(false);
-    matrix.setCursor(scrollPosition, HEIGHT / 2 - 4);
-    matrix.setTextSize(1);
-    matrix.setTextColor(matrix.color565(255, 255, 255));
-    matrix.print(displayText);
-    matrix.show();
-
-    scrollPosition--;
-    if (scrollPosition < -(int)(displayText.length() * 6)) {
-      scrollPosition = WIDTH;
-    }
-
-    lastUpdate = millis();
-  }
-}
-
-/* =======================
-  Truck Logo and Animation
-========================= */
-
-void drawCompanyLogo(int x, int y) {
-  // Simple green shield - no border, moved left for text to fit
-
-  // Draw green shield (clean and simple)
-  matrix.fillRect(x, y, 8, 5, matrix.color565(0, 180, 0));          // Green shield body
-  matrix.fillRect(x + 1, y + 5, 6, 1, matrix.color565(0, 180, 0));  // Shield taper
-  matrix.fillRect(x + 3, y + 6, 2, 1, matrix.color565(0, 180, 0));  // Shield point
-
-  // IMC text in black
-  matrix.setTextColor(matrix.color565(0, 0, 0));  // Black text
-  matrix.setTextSize(1);
-  matrix.setTextWrap(false);
-  matrix.setCursor(x + 8, y);  // Text next to shield
-  matrix.print("IMC");
-}
-
-
-void animateTruck() {
-  if (millis() - lastTruckUpdate > 80) {  // Slightly faster animation
-    matrix.fillScreen(0);
-
-    // More detailed truck design
-
-    // Truck cab (more realistic shape)
-    matrix.fillRect(truckPosition, 20, 10, 8, matrix.color565(0, 100, 200));     // Blue cab
-    matrix.fillRect(truckPosition + 1, 19, 8, 6, matrix.color565(0, 150, 255));  // Lighter blue windows
-
-    // Cab details
-    matrix.drawPixel(truckPosition + 2, 20, matrix.color565(200, 200, 255));  // Windshield
-    matrix.drawPixel(truckPosition + 3, 20, matrix.color565(200, 200, 255));
-    matrix.drawPixel(truckPosition + 4, 20, matrix.color565(200, 200, 255));
-    matrix.drawLine(truckPosition + 5, 22, truckPosition + 5, 27, matrix.color565(0, 50, 150));  // Door line
-
-    // Container/trailer (larger and more detailed)
-    matrix.fillRect(truckPosition + 10, 16, 28, 12, matrix.color565(220, 220, 220));  // Light gray container
-    matrix.drawRect(truckPosition + 10, 16, 28, 12, matrix.color565(180, 180, 180));  // Container border
-
-    // Container details (corrugated sides)
-    matrix.drawLine(truckPosition + 13, 16, truckPosition + 13, 27, matrix.color565(180, 180, 180));
-    matrix.drawLine(truckPosition + 17, 16, truckPosition + 17, 27, matrix.color565(180, 180, 180));
-    matrix.drawLine(truckPosition + 21, 16, truckPosition + 21, 27, matrix.color565(180, 180, 180));
-    matrix.drawLine(truckPosition + 25, 16, truckPosition + 25, 27, matrix.color565(180, 180, 180));
-    matrix.drawLine(truckPosition + 29, 16, truckPosition + 29, 27, matrix.color565(180, 180, 180));
-
-    // Company logo on container (moved further left)
-    if (truckPosition + 12 >= -30) {
-      drawCompanyLogo(truckPosition + 12, 18);
-    }
-
-    // More realistic wheels - repositioned for longer trailer
-    // Front wheel (cab)
-    matrix.fillRect(truckPosition + 2, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
-    matrix.drawPixel(truckPosition + 3, 29, matrix.color565(120, 120, 120));    // Rim
-
-    // Middle wheel (trailer front)
-    matrix.fillRect(truckPosition + 14, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
-    matrix.drawPixel(truckPosition + 15, 29, matrix.color565(120, 120, 120));    // Rim
-
-    // Back wheel (trailer rear) - moved to end of longer container
-    matrix.fillRect(truckPosition + 28, 28, 3, 3, matrix.color565(40, 40, 40));  // Tire
-    matrix.drawPixel(truckPosition + 29, 29, matrix.color565(120, 120, 120));    // Rim
-
-    // Connection between cab and trailer
-    matrix.drawLine(truckPosition + 9, 22, truckPosition + 11, 22, matrix.color565(100, 100, 100));
-
-    // Headlights
-    matrix.drawPixel(truckPosition - 1, 25, matrix.color565(255, 255, 200));  // Headlight
-    matrix.drawPixel(truckPosition - 1, 27, matrix.color565(255, 255, 200));  // Headlight
-
-    // Tail lights - moved to end of longer container
-    matrix.drawPixel(truckPosition + 38, 25, matrix.color565(255, 0, 0));  // Red tail light (top)
-    matrix.drawPixel(truckPosition + 38, 27, matrix.color565(255, 0, 0));  // Red tail light (bottom)
-
-    // Exhaust stack behind cab
-    matrix.fillRect(truckPosition + 8, 17, 1, 4, matrix.color565(60, 60, 60));  // Stack body
-    matrix.drawPixel(truckPosition + 8, 16, matrix.color565(80, 80, 80));       // Stack top
-    matrix.drawPixel(truckPosition + 8, 15, matrix.color565(100, 100, 100));    // Stack cap
-
-    // exhaust smoke
-    if (millis() % 500 < 250) {  // Flashing smoke effect
-      matrix.drawPixel(truckPosition + 10, 13, matrix.color565(80, 80, 80));
-      matrix.drawPixel(truckPosition + 9, 14, matrix.color565(60, 60, 60));
-    }
-
-    matrix.show();
-
-    truckPosition -= 1;         // Slower movement for better visibility
-    if (truckPosition < -36) {  // Truck fully off screen (adjusted for longer truck)
-      truckPosition = WIDTH;
-    }
-
-    lastTruckUpdate = millis();
-  }
-}
-
-void setTruckAnimation() {
-  currentDisplayMode = TRUCK_ANIMATION;
-  truckPosition = WIDTH;  // Reset truck position
-  Serial.println("Truck animation activated");
 }

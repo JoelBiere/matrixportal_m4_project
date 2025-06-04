@@ -1,4 +1,3 @@
-
 #include "config.h"
 #include "wifi_manager.h"
 #include "web_server.h"  
@@ -20,8 +19,9 @@ Adafruit_Protomatter matrix(
   WIDTH, 3, 1, rgbPins, 4, addrPins,
   clockPin, latchPin, oePin, true);
 
-// Display state variables
-DisplayMode currentDisplayMode = SOLID_COLOR;
+// NEW: Animation and display state variables
+AnimationType currentAnimation = ANIMATION_TRUCK;
+
 String displayText = "Hello Matrix!";
 uint16_t currentColor = 0;
 int scrollPosition = WIDTH;

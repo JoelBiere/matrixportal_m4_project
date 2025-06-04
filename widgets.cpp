@@ -3,9 +3,8 @@
 #include "matrix_display.h"
 
 // Widget state variables
-WidgetType topLeftWidget = WIDGET_CLOCK;
-WidgetType topRightWidget = WIDGET_WEATHER;
-bool widgetsEnabled = false;
+WidgetType topLeftWidget = WIDGET_NONE;
+WidgetType topRightWidget = WIDGET_NONE;
 
 // Widget data
 WeatherData currentWeather = {"Memphis", 72, "Sunny", "☀", 0};
@@ -22,79 +21,63 @@ void initializeWidgets() {
   Serial.println("Widgets initialized");
 }
 
-void updateWidgets() {
-  Serial.print("DEBUG: updateWidgets() - widgetsEnabled: ");
-  Serial.print(widgetsEnabled ? "true" : "false");
-  Serial.print(", currentDisplayMode: ");
-  Serial.println(currentDisplayMode);
-  
-  if (!widgetsEnabled) {
-    Serial.println("DEBUG: Widgets disabled - returning early");
-    return;
+// Update widget drawing to use only the widget zone (y=0-14)
+void drawWidget(WidgetType widget, int x, int y, int width, int height) {
+  // Ensure widgets stay in widget zone
+  if (y + height > WIDGET_ZONE_HEIGHT) {
+    height = WIDGET_ZONE_HEIGHT - y;
   }
-  
-  Serial.println("DEBUG: Widgets enabled, continuing...");
-  
-  uint32_t now = millis();
-  
-  // Update weather every 10 minutes
-  if (now - currentWeather.lastUpdate > 600000) { // 10 minutes
-    updateWeatherData();
+
+  // Serial.print("DEBUG: drawWidget() - type: ");
+  // Serial.print(widget);
+  // Serial.print(" in widget zone (");
+  // Serial.print(x); Serial.print(","); Serial.print(y); Serial.println(")");
+
+  switch (widget) {
+  case WIDGET_CLOCK:
+    drawClockWidget(x, y, width, height);
+    break;
+  case WIDGET_WEATHER:
+    drawWeatherWidget(x, y, width, height);
+    break;
+  case WIDGET_TEAMS:
+    drawTeamsWidget(x, y, width, height);
+    break;
+  case WIDGET_STOCKS:
+    drawStocksWidget(x, y, width, height);
+    break;
+  case WIDGET_NONE:
+  default:
+    // Serial.println("DEBUG: Widget type is NONE - drawing nothing");
+    resetWidgetZone(x, y, width, height);
+    break;
   }
-  
-  // Update teams every 30 seconds
-  if (now - currentTeams.lastUpdate > 30000) { // 30 seconds
-    updateTeamsData();
-  }
-  
-  // Update stocks every 1 minute
-  if (now - currentStock.lastUpdate > 60000) { // 1 minute
-    updateStockData();
-  }
-  
-  // Draw the widgets
-  Serial.println("DEBUG: About to draw widgets");
-  drawWidget(topLeftWidget, 0, 0, 32, 16);      // Top left quadrant
-  Serial.println("DEBUG: Left widget drawn");
-  drawWidget(topRightWidget, 32, 0, 32, 16);    // Top right quadrant
-  Serial.println("DEBUG: Right widget drawn");
 }
 
-void drawWidget(WidgetType widget, int x, int y, int width, int height) {
-  Serial.print("DEBUG: drawWidget() called - type: ");
-  Serial.print(widget);
-  Serial.print(" at position (");
-  Serial.print(x);
-  Serial.print(",");
-  Serial.print(y);
-  Serial.println(")");
-  
-  switch (widget) {
-    case WIDGET_CLOCK:
-      Serial.println("DEBUG: Drawing clock widget");
-      drawClockWidget(x, y, width, height);
-      break;
-    case WIDGET_WEATHER:
-      Serial.println("DEBUG: Drawing weather widget");
-      drawWeatherWidget(x, y, width, height);
-      break;
-    case WIDGET_TEAMS:
-      Serial.println("DEBUG: Drawing teams widget");
-      drawTeamsWidget(x, y, width, height);
-      break;
-    case WIDGET_STOCKS:
-      Serial.println("DEBUG: Drawing stocks widget");
-      drawStocksWidget(x, y, width, height);
-      break;
-    case WIDGET_NONE:
-    default:
-      Serial.println("DEBUG: Widget type is NONE - drawing nothing");
-      break;
+void updateWidgets() {
+
+  uint32_t now = millis();
+
+  // Update widget data periodically
+  if (now - currentWeather.lastUpdate > 600000) {
+    updateWeatherData();
   }
+
+  if (now - currentTeams.lastUpdate > 30000) {
+    updateTeamsData();
+  }
+
+  if (now - currentStock.lastUpdate > 60000) {
+    updateStockData();
+  }
+
+  // Draw widgets only in top zone
+  drawWidget(topLeftWidget, 0, 0, 32, WIDGET_ZONE_HEIGHT);      // Left half
+  drawWidget(topRightWidget, 32, 0, 32, WIDGET_ZONE_HEIGHT);    // Right half
 }
 
 void drawClockWidget(int x, int y, int width, int height) {
-  Serial.println("DEBUG: drawClockWidget() entered");
+  // Serial.println("DEBUG: drawClockWidget() entered");
   
   // Add a simple test rectangle to verify drawing works
   matrix.fillRect(x, y, width, height, matrix.color565(64, 0, 0)); // Dark red background
@@ -111,8 +94,8 @@ void drawClockWidget(int x, int y, int width, int height) {
   String timeStr = formatTime(false); // 12-hour format
   matrix.print(timeStr);
   
-  Serial.print("DEBUG: Clock widget drawn with time: ");
-  Serial.println(timeStr);
+  // Serial.print("DEBUG: Clock widget drawn with time: ");
+  // Serial.println(timeStr);
 }
 
 String formatTime(bool is24Hour) {
@@ -132,7 +115,7 @@ String formatTime(bool is24Hour) {
 }
 
 void drawWeatherWidget(int x, int y, int width, int height) {
-  Serial.println("DEBUG: drawWeatherWidget() entered");
+  // Serial.println("DEBUG: drawWeatherWidget() entered");
   
   // Add a simple test rectangle to verify drawing works
   matrix.fillRect(x, y, width, height, matrix.color565(0, 64, 0)); // Dark green background
@@ -145,8 +128,8 @@ void drawWeatherWidget(int x, int y, int width, int height) {
   String tempStr = String(currentWeather.temperature) + "F";
   matrix.print(tempStr);
   
-  Serial.print("DEBUG: Weather widget drawn with temp: ");
-  Serial.println(tempStr);
+  // Serial.print("DEBUG: Weather widget drawn with temp: ");
+  // Serial.println(tempStr);
 }
 
 void drawTeamsWidget(int x, int y, int width, int height) {
@@ -179,6 +162,14 @@ void drawStocksWidget(int x, int y, int width, int height) {
   // Show price on second line
   matrix.setCursor(x, y + 12);
   matrix.print("$" + String(currentStock.price, 1));
+}
+
+void resetWidgetZone(int x, int y, int width, int height){
+  // Clear the entire widget zone
+  matrix.fillRect(x, y, width, height, matrix.color565(0, 0, 0)); // Black background
+  matrix.setTextWrap(true);
+  matrix.setTextSize(1);
+  matrix.setTextColor(matrix.color565(255, 255, 255)); // White text
 }
 
 void updateWeatherData() {
@@ -222,9 +213,4 @@ void setTopLeftWidget(WidgetType widget) {
 void setTopRightWidget(WidgetType widget) {
   topRightWidget = widget;
   Serial.println("Top right widget set to: " + String(widget));
-}
-
-void toggleWidgets() {
-  widgetsEnabled = !widgetsEnabled;
-  Serial.println("Widgets " + String(widgetsEnabled ? "enabled" : "disabled"));
 }

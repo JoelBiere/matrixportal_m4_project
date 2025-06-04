@@ -4,24 +4,25 @@
 #include "hardware_config.h"
 
 // Widget types for upper quadrants
-enum WidgetType {
-  WIDGET_CLOCK = 0,
-  WIDGET_WEATHER = 1,
-  WIDGET_TEMPERATURE = 2,
-  WIDGET_COUNTER = 3,
-  WIDGET_STATUS = 4,
-  WIDGET_TEAMS = 5,
-  WIDGET_STOCKS = 6,
-  WIDGET_NONE = 7
+enum WidgetType
+{
+  WIDGET_NONE = 0,
+  WIDGET_CLOCK = 1,
+  WIDGET_WEATHER = 2,
+  WIDGET_TEAMS = 3,
+  WIDGET_STOCKS = 4,
+  WIDGET_STATUS = 5,
+  WIDGET_COUNTER = 6,
+  WIDGET_TEMPERATURE = 7,
 };
 
 // Simple widget variables
 extern WidgetType topLeftWidget;
 extern WidgetType topRightWidget;
-extern bool widgetsEnabled;
 
 // Widget data structures
-struct WeatherData {
+struct WeatherData
+{
   String location;
   int temperature;
   String condition;
@@ -29,14 +30,16 @@ struct WeatherData {
   uint32_t lastUpdate;
 };
 
-struct TeamsData {
+struct TeamsData
+{
   String status;
   String details;
   uint16_t statusColor;
   uint32_t lastUpdate;
 };
 
-struct StockData {
+struct StockData
+{
   String symbol;
   float price;
   float change;
@@ -56,11 +59,11 @@ void drawClockWidget(int x, int y, int width, int height);
 void drawWeatherWidget(int x, int y, int width, int height);
 void drawTeamsWidget(int x, int y, int width, int height);
 void drawStocksWidget(int x, int y, int width, int height);
+void resetWidgetZone(int x, int y, int width, int height);
 
 // Widget setters
 void setTopLeftWidget(WidgetType widget);
 void setTopRightWidget(WidgetType widget);
-void toggleWidgets();
 
 // Data update functions
 void updateWeatherData();
