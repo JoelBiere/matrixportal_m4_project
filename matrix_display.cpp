@@ -1,4 +1,3 @@
-
 #include "matrix_display.h"
 #include "widgets.h"
 
@@ -88,6 +87,15 @@ void testMatrix() {
 }
 
 void updateMatrixDisplay() {
+  static uint32_t lastDebugOutput = 0;
+  
+  // Debug output every 2 seconds
+  if (millis() - lastDebugOutput > 2000) {
+    Serial.print("updateMatrixDisplay() - currentDisplayMode: ");
+    Serial.println(currentDisplayMode);
+    lastDebugOutput = millis();
+  }
+  
   switch (currentDisplayMode) {
     case PATTERN:
       animatePattern();

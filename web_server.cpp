@@ -46,6 +46,8 @@ void handleWebClient(WiFiClient client) {
 }
 
 void processRequest(WiFiClient client, String request) {
+  Serial.println("DEBUG: Received request: " + request);  // Add this line
+  
   // Send headers
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html; charset=UTF-8");
@@ -62,7 +64,7 @@ void processRequest(WiFiClient client, String request) {
   } else if (request.indexOf("GET /pattern") >= 0) {
     setMatrixPattern();
     client.println("Pattern activated");
-  } else if (request.indexOf("GET /truck") >= 0) {  // Added truck animation route
+  } else if (request.indexOf("GET /truck") >= 0) {
     setTruckAnimation();
     client.println("Truck animation activated");
   } else if (request.indexOf("GET /text?msg=") >= 0) {
@@ -88,6 +90,7 @@ void processRequest(WiFiClient client, String request) {
     client.println("Widgets toggled");
   }
   else {
+    Serial.println("DEBUG: Unknown command: " + request);  // Add this line
     client.println("Unknown command");
   }
 }

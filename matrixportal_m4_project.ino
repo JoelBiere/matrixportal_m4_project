@@ -32,7 +32,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial && millis() < 3000);
   
-  Serial.println("=== MatrixPortal M4 Multi-File Project ===");
+  Serial.println("=== MatrixPortal M4 Project ===");
   
   // Initialize modules
   initializeMatrix();

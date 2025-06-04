@@ -23,7 +23,17 @@ void initializeWidgets() {
 }
 
 void updateWidgets() {
-  if (!widgetsEnabled) return;
+  Serial.print("DEBUG: updateWidgets() - widgetsEnabled: ");
+  Serial.print(widgetsEnabled ? "true" : "false");
+  Serial.print(", currentDisplayMode: ");
+  Serial.println(currentDisplayMode);
+  
+  if (!widgetsEnabled) {
+    Serial.println("DEBUG: Widgets disabled - returning early");
+    return;
+  }
+  
+  Serial.println("DEBUG: Widgets enabled, continuing...");
   
   uint32_t now = millis();
   
@@ -43,32 +53,52 @@ void updateWidgets() {
   }
   
   // Draw the widgets
+  Serial.println("DEBUG: About to draw widgets");
   drawWidget(topLeftWidget, 0, 0, 32, 16);      // Top left quadrant
+  Serial.println("DEBUG: Left widget drawn");
   drawWidget(topRightWidget, 32, 0, 32, 16);    // Top right quadrant
+  Serial.println("DEBUG: Right widget drawn");
 }
 
 void drawWidget(WidgetType widget, int x, int y, int width, int height) {
+  Serial.print("DEBUG: drawWidget() called - type: ");
+  Serial.print(widget);
+  Serial.print(" at position (");
+  Serial.print(x);
+  Serial.print(",");
+  Serial.print(y);
+  Serial.println(")");
+  
   switch (widget) {
     case WIDGET_CLOCK:
+      Serial.println("DEBUG: Drawing clock widget");
       drawClockWidget(x, y, width, height);
       break;
     case WIDGET_WEATHER:
+      Serial.println("DEBUG: Drawing weather widget");
       drawWeatherWidget(x, y, width, height);
       break;
     case WIDGET_TEAMS:
+      Serial.println("DEBUG: Drawing teams widget");
       drawTeamsWidget(x, y, width, height);
       break;
     case WIDGET_STOCKS:
+      Serial.println("DEBUG: Drawing stocks widget");
       drawStocksWidget(x, y, width, height);
       break;
     case WIDGET_NONE:
     default:
-      // Draw nothing or blank space
+      Serial.println("DEBUG: Widget type is NONE - drawing nothing");
       break;
   }
 }
 
 void drawClockWidget(int x, int y, int width, int height) {
+  Serial.println("DEBUG: drawClockWidget() entered");
+  
+  // Add a simple test rectangle to verify drawing works
+  matrix.fillRect(x, y, width, height, matrix.color565(64, 0, 0)); // Dark red background
+  
   matrix.setCursor(x, y + 8);
   matrix.setTextColor(0x001F); // Blue
   matrix.setTextSize(1);
@@ -80,6 +110,9 @@ void drawClockWidget(int x, int y, int width, int height) {
   
   String timeStr = formatTime(false); // 12-hour format
   matrix.print(timeStr);
+  
+  Serial.print("DEBUG: Clock widget drawn with time: ");
+  Serial.println(timeStr);
 }
 
 String formatTime(bool is24Hour) {
@@ -99,12 +132,21 @@ String formatTime(bool is24Hour) {
 }
 
 void drawWeatherWidget(int x, int y, int width, int height) {
+  Serial.println("DEBUG: drawWeatherWidget() entered");
+  
+  // Add a simple test rectangle to verify drawing works
+  matrix.fillRect(x, y, width, height, matrix.color565(0, 64, 0)); // Dark green background
+  
   matrix.setCursor(x, y + 8);
   matrix.setTextColor(0xFFE0); // Yellow
   matrix.setTextSize(1);
   
   // Show temperature
-  matrix.print(String(currentWeather.temperature) + "F");
+  String tempStr = String(currentWeather.temperature) + "F";
+  matrix.print(tempStr);
+  
+  Serial.print("DEBUG: Weather widget drawn with temp: ");
+  Serial.println(tempStr);
 }
 
 void drawTeamsWidget(int x, int y, int width, int height) {
