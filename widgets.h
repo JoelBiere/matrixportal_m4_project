@@ -74,6 +74,25 @@ void updateWeatherData();
 void updateTeamsData();
 void updateStockData();
 
+// weather animations
+void drawWeatherBackground(int x, int y, int width, int height);
+void drawWeatherElements(int x, int y, int width, int height);
+void drawWeatherText(int x, int y, int width, int height);
+void drawStars(int x, int y, int width, int height);
+void drawAnimatedSun(int x, int y);
+void drawMoon(int x, int y);
+void drawAnimatedClouds(int x, int y, int width, int height, bool heavy);
+void drawCloudShape(int x, int y, uint16_t color);
+void drawAnimatedRain(int x, int y, int width, int height);
+void drawAnimatedSnow(int x, int y, int width, int height);
+void drawLightning(int x, int y, int width, int height);
+void drawWeatherWidgetCore(int x, int y, int width, int height);
+
+// weather animation DEBUG mode
+void setWeatherDebugMode(bool enabled);
+void advanceDebugWeather();
+String getDebugWeatherInfo();
+
 // Helper functions
 String formatTime(bool is24Hour);
 uint16_t getStatusColor(String status);

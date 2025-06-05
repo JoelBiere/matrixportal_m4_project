@@ -6,7 +6,7 @@
 WidgetType currentWidget = WIDGET_WEATHER;
 
 // Widget data
-WeatherData currentWeather = {"Memphis", "TN", "US", 70, "Sunny", "Sun", 100, 20, "NW", 0, false};
+WeatherData currentWeather = {"Memphis", "TN", "US", 70, true, "Sunny", "Sun", 100, 20, "NW", 0, false};
 TeamsData currentTeams = {"Available", "", 0x07E0, 0}; // Green
 StockData currentStock = {"AAPL", 150.25, 2.50, true, 0};
 
