@@ -16,18 +16,23 @@ enum WidgetType
   WIDGET_TEMPERATURE = 7,
 };
 
-// Simple widget variables
-extern WidgetType topLeftWidget;
-extern WidgetType topRightWidget;
+extern WidgetType currentWidget;
 
 // Widget data structures
 struct WeatherData
 {
   String location;
+  String region;
+  String country;
   int temperature;
+  bool isDay;
   String condition;
   String icon;
+  int humidity;
+  int windSpeed;
+  String windDirection;
   uint32_t lastUpdate;
+  bool dataValid;
 };
 
 struct TeamsData
@@ -61,9 +66,8 @@ void drawTeamsWidget(int x, int y, int width, int height);
 void drawStocksWidget(int x, int y, int width, int height);
 void resetWidgetZone(int x, int y, int width, int height);
 
-// Widget setters
-void setTopLeftWidget(WidgetType widget);
-void setTopRightWidget(WidgetType widget);
+// Widget setter
+void setWidget(WidgetType widget);
 
 // Data update functions
 void updateWeatherData();

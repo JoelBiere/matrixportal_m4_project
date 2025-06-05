@@ -5,66 +5,52 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
 
 # Arduino paths - adjust these to match your system
-set(ARDUINO_PATH "C:/Users/joelb/AppData/Local/Arduino15")
-set(ARDUINO_CORE_PATH "${ARDUINO_PATH}/packages/adafruit/hardware/samd/1.7.11")
-set(ARDUINO_LIBRARIES_PATH "C:/Users/joelb/Documents/Arduino/libraries")
+set(SYSTEM_USER "joelb")
+set(ARDUINO_PATH "C:/Users/${SYSTEM_USER}/Documents/Arduino")
+set(ARDUINO_LIBRARIES_PATH "${ARDUINO_PATH}/libraries")
 
 # Add project source directory for local headers
 include_directories(${CMAKE_SOURCE_DIR})
 
-# Arduino core include directories
+# Only include user libraries for IDE support
+# Core libraries are handled by arduino-cli during compilation
 include_directories(
-    ${ARDUINO_CORE_PATH}/cores/arduino
-    ${ARDUINO_CORE_PATH}/cores/arduino/api/deprecated
-    ${ARDUINO_CORE_PATH}/cores/arduino/api/deprecated-avr-comp
-    ${ARDUINO_CORE_PATH}/variants/matrixportal_m4
-    ${ARDUINO_CORE_PATH}/libraries/SPI/src
-    ${ARDUINO_CORE_PATH}/libraries/Wire/src
-)
-
-# Arduino library include directories
-include_directories(
-    # WiFiNINA library
-    ${ARDUINO_LIBRARIES_PATH}/WiFiNINA/src
-    
-    # Adafruit libraries - add the specific header path
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter/src
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
-    
-    # Other common libraries that might be needed
-    ${ARDUINO_LIBRARIES_PATH}/SPI/src
-    ${ARDUINO_LIBRARIES_PATH}/Wire/src
+        # User-installed libraries from Documents/Arduino/libraries
+        ${ARDUINO_LIBRARIES_PATH}/WiFiNINA/src
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter/src
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
+        ${ARDUINO_LIBRARIES_PATH}/ArduinoJson/src
 )
 
 # Add all your source files
 set(SOURCES
-    # Main Arduino sketch
-    matrixportal_m4_project.ino
-    
-    # Your custom modules
-    wifi_manager.cpp
-    web_server.cpp
-    matrix_display.cpp
-    widgets.cpp
+        # Main Arduino sketch
+        matrixportal_m4_project.ino
+
+        # Your custom modules
+        wifi_manager.cpp
+        web_server.cpp
+        matrix_display.cpp
+        widgets.cpp
+        credentials.cpp
 )
 
 # Add header files explicitly for better IDE support
 set(HEADERS
-    config.h
-    credentials.h
-    display_modes.h
-    hardware_config.h
-    matrix_display.h
-    web_server.h
-    widgets.h
-    wifi_manager.h
+        config.h
+        credentials.h
+        display_modes.h
+        hardware_config.h
+        matrix_display.h
+        web_server.h
+        widgets.h
+        wifi_manager.h
 )
 
 # Create a mock Arduino.h for IDE support
 file(WRITE ${CMAKE_BINARY_DIR}/Arduino.h
-"#ifndef ARDUINO_H
+        "#ifndef ARDUINO_H
 #define ARDUINO_H
 
 #include <stdint.h>
@@ -78,10 +64,24 @@ public:
     String(const std::string& s) : std::string(s) {}
     String(int n) : std::string(std::to_string(n)) {}
     String(float f, int decimals = 2) : std::string(std::to_string(f)) {}
-    
+
     int length() const { return size(); }
     String substring(int start) const { return substr(start); }
     String substring(int start, int end) const { return substr(start, end - start); }
+    int indexOf(const String& s) const { return find(s); }
+    int indexOf(const String& s, int start) const { return find(s, start); }
+    int indexOf(const char* s) const { return find(s); }
+    String replace(const String& from, const String& to) const {
+        String result = *this;
+        size_t pos = 0;
+        while ((pos = result.find(from, pos)) != std::string::npos) {
+            result.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+        return result;
+    }
+    int toInt() const { return std::stoi(*this); }
+    float toFloat() const { return std::stof(*this); }
 };
 
 // Mock Serial class
@@ -90,8 +90,11 @@ public:
     void begin(int baud) {}
     void println(const char* s) {}
     void println(const String& s) {}
+    void println(int n) {}
     void print(const char* s) {}
     void print(const String& s) {}
+    void print(int n) {}
+    void printf(const char* format, ...) {}
     operator bool() { return true; }
 };
 
@@ -121,7 +124,7 @@ typedef uint8_t byte;
 
 # Create mock Adafruit_Protomatter.h for IDE support
 file(WRITE ${CMAKE_BINARY_DIR}/Adafruit_Protomatter.h
-"#ifndef ADAFRUIT_PROTOMATTER_H
+        "#ifndef ADAFRUIT_PROTOMATTER_H
 #define ADAFRUIT_PROTOMATTER_H
 
 #include <stdint.h>
@@ -129,23 +132,121 @@ file(WRITE ${CMAKE_BINARY_DIR}/Adafruit_Protomatter.h
 // Mock Adafruit_Protomatter class for IDE support
 class Adafruit_Protomatter {
 public:
-    Adafruit_Protomatter(int width, int bit_planes, int rgbcount, 
+    Adafruit_Protomatter(int width, int bit_planes, int rgbcount,
                         uint8_t* rgbpins, int addr_count, uint8_t* addrpins,
                         uint8_t clockpin, uint8_t latchpin, uint8_t oepin, bool dbuf) {}
-    
+
     void begin() {}
     void show() {}
     void fillScreen(uint16_t color) {}
+    void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {}
     void drawPixel(int16_t x, int16_t y, uint16_t color) {}
+    void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) {}
+    void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {}
     void setCursor(int16_t x, int16_t y) {}
     void setTextColor(uint16_t color) {}
     void setTextSize(uint8_t size) {}
+    void setTextWrap(bool wrap) {}
     void print(const char* text) {}
     void print(const String& text) {}
     uint16_t color565(uint8_t r, uint8_t g, uint8_t b) { return 0; }
     int16_t width() { return 64; }
     int16_t height() { return 32; }
 };
+
+enum ProtomatterStatus {
+    PROTOMATTER_OK = 0,
+    PROTOMATTER_ERR_PINS = 1,
+    PROTOMATTER_ERR_ARG = 2,
+    PROTOMATTER_ERR_MALLOC = 3
+};
+
+#endif
+")
+
+# Create mock WiFiNINA.h for IDE support
+file(WRITE ${CMAKE_BINARY_DIR}/WiFiNINA.h
+        "#ifndef WIFININA_H
+#define WIFININA_H
+
+#include <stdint.h>
+
+class IPAddress {
+public:
+    IPAddress() {}
+    IPAddress(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {}
+    uint8_t operator[](int index) const { return 192; } // Mock IP
+};
+
+class WiFiClient {
+public:
+    bool connect(const char* host, int port) { return true; }
+    void stop() {}
+    bool connected() { return true; }
+    int available() { return 0; }
+    char read() { return 0; }
+    void print(const char* s) {}
+    void println(const char* s) {}
+    String readStringUntil(char terminator) { return \"\"; }
+};
+
+class WiFiServer {
+public:
+    WiFiServer(int port) {}
+    void begin() {}
+    WiFiClient available() { return WiFiClient(); }
+};
+
+class WiFiClass {
+public:
+    int begin(const char* ssid, const char* pass) { return WL_CONNECTED; }
+    int status() { return WL_CONNECTED; }
+    IPAddress localIP() { return IPAddress(192, 168, 1, 100); }
+    const char* SSID() { return \"MockSSID\"; }
+    long RSSI() { return -50; }
+    const char* firmwareVersion() { return \"1.0.0\"; }
+    int scanNetworks() { return 1; }
+    const char* SSID(int index) { return \"MockNetwork\"; }
+    long RSSI(int index) { return -60; }
+};
+
+extern WiFiClass WiFi;
+
+#endif
+")
+
+# Create mock ArduinoJson.h for IDE support
+file(WRITE ${CMAKE_BINARY_DIR}/ArduinoJson.h
+        "#ifndef ARDUINOJSON_H
+#define ARDUINOJSON_H
+
+#include <string>
+#include <map>
+
+class JsonObject {
+public:
+    template<typename T>
+    T as() const { return T(); }
+
+    JsonObject operator[](const char* key) const { return JsonObject(); }
+};
+
+enum DeserializationError {
+    Ok = 0
+};
+
+template<int SIZE>
+class StaticJsonDocument {
+public:
+    JsonObject as<JsonObject>() { return JsonObject(); }
+    JsonObject operator[](const char* key) { return JsonObject(); }
+};
+
+typedef StaticJsonDocument<2048> DynamicJsonDocument;
+
+DeserializationError deserializeJson(DynamicJsonDocument& doc, const std::string& input) {
+    return Ok;
+}
 
 #endif
 ")
@@ -158,70 +259,65 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 # Set target-specific include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_BINARY_DIR}
-    ${ARDUINO_CORE_PATH}/cores/arduino
-    ${ARDUINO_CORE_PATH}/cores/arduino/api/deprecated
-    ${ARDUINO_CORE_PATH}/variants/matrixportal_m4
-    ${ARDUINO_CORE_PATH}/libraries/SPI/src
-    ${ARDUINO_CORE_PATH}/libraries/Wire/src
-    ${ARDUINO_LIBRARIES_PATH}/WiFiNINA/src
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter/src
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
-    ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
+        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_BINARY_DIR}
+        ${ARDUINO_LIBRARIES_PATH}/WiFiNINA/src
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_Protomatter/src
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
+        ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
+        ${ARDUINO_LIBRARIES_PATH}/ArduinoJson/src
 )
 
 # Arduino-specific definitions that are safe for IDE analysis
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    ARDUINO=10819
-    ARDUINO_SAMD_MATRIXPORTAL_M4
-    ARDUINO_ARCH_SAMD
-    __SAMD51__
-    F_CPU=120000000L
-    ADAFRUIT_MATRIXPORTAL_M4_EXPRESS
-    USB_VID=0x239A
-    USB_PID=0x80F1
-    USB_PRODUCT="MatrixPortal M4"
-    USB_MANUFACTURER="Adafruit"
-    BOARD_NAME="MatrixPortal M4"
-    VARIANT_QSPI_BAUD_DEFAULT=50000000
-    ENABLE_CACHE
+        ARDUINO=10819
+        ARDUINO_SAMD_MATRIXPORTAL_M4
+        ARDUINO_ARCH_SAMD
+        __SAMD51__
+        F_CPU=120000000L
+        ADAFRUIT_MATRIXPORTAL_M4_EXPRESS
+        USB_VID=0x239A
+        USB_PID=0x80F1
+        USB_PRODUCT="MatrixPortal M4"
+        USB_MANUFACTURER="Adafruit"
+        BOARD_NAME="MatrixPortal M4"
+        VARIANT_QSPI_BAUD_DEFAULT=50000000
+        ENABLE_CACHE
 )
 
 # Set C++ standard for the target
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS ON
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS ON
 )
 
 # Set file associations for CLion - treat .ino files as C++
 set_source_files_properties(
-    matrixportal_m4_project.ino
-    PROPERTIES
-    LANGUAGE CXX
+        matrixportal_m4_project.ino
+        PROPERTIES
+        LANGUAGE CXX
 )
 
 # Enable compile commands export for better IDE support
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Optional: Set up custom target for arduino-cli compilation
+# Custom target for arduino-cli compilation
 add_custom_target(arduino_compile
-    COMMAND arduino-cli compile --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Compiling with arduino-cli"
+        COMMAND arduino-cli compile --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Compiling with arduino-cli"
 )
 
 add_custom_target(arduino_upload
-    COMMAND arduino-cli compile --upload -p COM4 --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Uploading with arduino-cli"
-    DEPENDS arduino_compile
+        COMMAND arduino-cli compile --upload -p COM4 --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Uploading with arduino-cli"
+        DEPENDS arduino_compile
 )
 
 add_custom_target(deploy
-    COMMAND ${CMAKE_SOURCE_DIR}/deploy.bat
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Running deploy.bat script"
+        COMMAND ${CMAKE_SOURCE_DIR}/deploy.bat
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Running deploy.bat script"
 )

@@ -7,7 +7,7 @@
 
 // Global variables
 extern Adafruit_Protomatter matrix;
-extern AnimationType currentAnimation;  // Changed from DisplayMode
+extern AnimationType currentAnimation;
 extern String displayText;
 extern uint16_t currentColor;
 extern int scrollPosition;

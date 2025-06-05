@@ -28,7 +28,7 @@ void updateMatrixDisplay() {
     Serial.print("Animation: ");
     Serial.print(currentAnimation);
     Serial.print(", Widgets: ");
-    Serial.println(topLeftWidget + " | " + topRightWidget);
+    Serial.println(currentWidget);
     lastDebugOutput = millis();
   }
 

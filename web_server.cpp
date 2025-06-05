@@ -102,17 +102,11 @@ void processRequest(WiFiClient client, String request)
     clearAnimationZone(); // UPDATED
     client.println("Display cleared");
   }
-  else if (request.indexOf("GET /widget-left?w=") >= 0)
+  else if (request.indexOf("GET /widget?w=") >= 0)
   {
     int widgetType = extractParameter(request, "w=");
-    setTopLeftWidget((WidgetType)widgetType);
-    client.println("Left widget changed");
-  }
-  else if (request.indexOf("GET /widget-right?w=") >= 0)
-  {
-    int widgetType = extractParameter(request, "w=");
-    setTopRightWidget((WidgetType)widgetType);
-    client.println("Right widget changed");
+    setWidget((WidgetType)widgetType);
+    client.println("Widget changed");
   }
   else
   {
@@ -177,29 +171,17 @@ void sendControlPage(WiFiClient client)
   client.println("<h3>Smart Widgets:</h3>");
   client.println("<div class='widget-grid'>");
   client.println("<div>");
-  client.println("<label>Top Left Widget:</label><br>");
-  client.println("<select id='leftWidget'>");
+  client.println("<label>Widget:</label><br>");
+  client.println("<select id='widget'>");
   client.println("<option value='0'>None</option>");
   client.println("<option value='1' selected>Clock</option>");
   client.println("<option value='2'>Weather</option>");
   client.println("<option value='3'>Teams Status</option>");
   client.println("<option value='4'>Stock Ticker</option>");
   client.println("</select>");
-  client.println("<button class='widget-btn' onclick='setLeftWidget()'>Set</button>");
-  client.println("</div>");
-  client.println("<div>");
-  client.println("<label>Top Right Widget:</label><br>");
-  client.println("<select id='rightWidget'>");
-  client.println("<option value='0'>None</option>");
-  client.println("<option value='1'>Clock</option>");
-  client.println("<option value='2' selected>Weather</option>");
-  client.println("<option value='3'>Teams Status</option>");
-  client.println("<option value='4'>Stock Ticker</option>");
-  client.println("</select>");
-  client.println("<button class='widget-btn' onclick='setRightWidget()'>Set</button>");
+  client.println("<button class='widget-btn' onclick='setWidget()'>Set</button>");
   client.println("</div>");
   client.println("</div>");
-  // client.println("<button class='widget-btn' onclick='toggleWidgets()'>🔄 Toggle Widgets</button>");
   client.println("</div>");
 
   client.println("<div class='section'>");
@@ -212,15 +194,11 @@ void sendControlPage(WiFiClient client)
   client.println("function setColor(colorIndex) { fetch('/color?c=' + colorIndex); }");
   client.println("function setPattern() { fetch('/pattern'); }");
   client.println("function setTruck() { fetch('/truck'); }");
-  // client.println("function setWidgets() { fetch('/widgets'); }");
   client.println("function clearDisplay() { fetch('/clear'); }");
   client.println(
     "function setText() { const text = document.getElementById('textInput').value; fetch('/text?msg=' + encodeURIComponent(text)); }");
   client.println(
-    "function setLeftWidget() { const w = document.getElementById('leftWidget').value; fetch('/widget-left?w=' + w); }");
-  client.println(
-    "function setRightWidget() { const w = document.getElementById('rightWidget').value; fetch('/widget-right?w=' + w); }");
-  // client.println("function toggleWidgets() { fetch('/toggle-widgets'); }");
+    "function setWidget() { const w = document.getElementById('widget').value; fetch('/widget?w=' + w); }");
   client.println("</script>");
 
   client.println("</body>");
