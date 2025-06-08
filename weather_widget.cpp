@@ -481,8 +481,11 @@ void drawWeatherElements(int x, int y, int width, int height)
   {
     drawAnimatedClouds(x, y, width, height, true); // Rain clouds
     drawAnimatedRain(x, y, width, height);
+    if(condition.indexOf("thunder") >= 0) {
+        drawLightning(x, y, width, height); // Add lightning if thunderstorm
+    }
   }
-  else if (condition.indexOf("snow") >= 0)
+  else if (condition.indexOf("snow") >= 0 || condition.indexOf("ice") >= 0)
   {
     drawAnimatedClouds(x, y, width, height, true); // Snow clouds
     drawAnimatedSnow(x, y, width, height);
@@ -736,18 +739,20 @@ void drawWeatherText(int x, int y, int width, int height)
   }
 
   // Temperature in upper left with adaptive color
-  matrix.setCursor(x + 1, y + 1);
+  matrix.setCursor(x + 1, y);
   matrix.setTextColor(tempColor);
   matrix.setTextSize(1);
   matrix.print(String(currentWeather.temperature) + "F");
 
   // Location on bottom line with adaptive color
-  matrix.setCursor(x + 1, y + height - 8);
+  matrix.setCursor(x + 1, y + height - 7);
   matrix.setTextColor(locationColor);
   String displayLocation = currentWeather.location;
-  if (displayLocation.length() > 8)
+    // word length + 1 is spaces - each char is 5 pixels wide
+    // I have 64 pixels wide, so 10 characters max
+    if (displayLocation.length() > 10)
   {
-    displayLocation = displayLocation.substring(0, 8);
+    displayLocation = displayLocation.substring(0, 10) + "...";
   }
   matrix.print(displayLocation);
 }

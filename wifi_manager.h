@@ -6,6 +6,7 @@
 // WiFi status and server
 extern int wifiStatus;
 extern WiFiServer server;
+
 extern uint32_t lastWiFiCheck;
 extern uint32_t lastReconnectAttempt;
 extern bool reconnectionInProgress;

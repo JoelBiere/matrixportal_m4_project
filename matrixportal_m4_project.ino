@@ -4,12 +4,16 @@
 #include "matrix_display.h"
 #include "widgets.h"
 
+
+WiFiServer server(80);
+int wifiStatus = WL_IDLE_STATUS;
+
 // Matrix configuration
-uint8_t rgbPins[] = {7, 8, 9, 10, 11, 12};
+uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin = 14;
-uint8_t latchPin = 15;
-uint8_t oePin = 16;
+uint8_t clockPin   = 14;
+uint8_t latchPin   = 15;
+uint8_t oePin      = 16;
 
 Adafruit_Protomatter matrix(
         WIDTH, 3, 1, rgbPins, 4, addrPins,

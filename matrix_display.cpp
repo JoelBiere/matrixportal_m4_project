@@ -25,10 +25,10 @@ void updateMatrixDisplay() {
 
   // Debug output every 2 seconds
   if (millis() - lastDebugOutput > 2000) {
-    Serial.print("Animation: ");
-    Serial.print(currentAnimation);
-    Serial.print(", Widgets: ");
-    Serial.println(currentWidget);
+//    Serial.print("Animation: ");
+//    Serial.print(currentAnimation);
+//    Serial.print(", Widgets: ");
+//    Serial.println(currentWidget);
     lastDebugOutput = millis();
   }
 

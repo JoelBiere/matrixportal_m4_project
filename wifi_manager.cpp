@@ -1,11 +1,8 @@
-#include "Arduino.h"
 #include "wifi_manager.h"
 #include "matrix_display.h"
 #include "credentials.h"
 
 // WiFi status tracking
-int wifiStatus = WL_IDLE_STATUS;
-WiFiServer server(80);
 uint32_t lastWiFiCheck = 0;
 uint32_t lastReconnectAttempt = 0;
 bool reconnectionInProgress = false;
@@ -26,7 +23,7 @@ void initializeWiFi() {
     connectToWiFi(ssid, wifiPass);
     if (wifiStatus == WL_CONNECTED) {
         printWiFiStatus();
-        server.begin(); // Start the web server
+//        server.begin(); // Start the web server
         showMatrixIPAddress();
         Serial.println("Web server started successfully");
     }
@@ -36,7 +33,7 @@ void initializeWiFi() {
         connectToWiFi(ssid2, wifiPass);
         if (wifiStatus == WL_CONNECTED) {
             printWiFiStatus();
-            server.begin(); // Start the web server
+//            server.begin(); // Start the web server
             showMatrixIPAddress();
             Serial.println("Web server started successfully");
         }
@@ -103,6 +100,7 @@ bool isWiFiConnected() {
 }
 
 void handleWiFiReconnection() {
+    Serial.println("Handling WiFi reconnection...");
     uint32_t now = millis();
 
     // Check WiFi status every 10 seconds
@@ -153,7 +151,7 @@ void attemptReconnection() {
         printWiFiStatus();
 
         // Restart the web server
-        server.begin();
+//        server.begin();
         Serial.println("Web server restarted");
 
         // Optionally show IP on matrix briefly
@@ -181,24 +179,15 @@ void showReconnectionSuccess() {
 }
 
 String getWiFiStatusString(int status) {
-    switch (status) {
-        case WL_IDLE_STATUS:
-            return "WL_IDLE_STATUS";
-        case WL_NO_SSID_AVAIL:
-            return "WL_NO_SSID_AVAIL (Network not found)";
-        case WL_SCAN_COMPLETED:
-            return "WL_SCAN_COMPLETED";
-        case WL_CONNECTED:
-            return "WL_CONNECTED";
-        case WL_CONNECT_FAILED:
-            return "WL_CONNECT_FAILED (Wrong password?)";
-        case WL_CONNECTION_LOST:
-            return "WL_CONNECTION_LOST";
-        case WL_DISCONNECTED:
-            return "WL_DISCONNECTED";
-        case WL_NO_MODULE:
-            return "WL_NO_MODULE (Hardware issue)";
-        default:
-            return "UNKNOWN_STATUS (" + String(status) + ")";
-    }
+  switch(status) {
+    case WL_IDLE_STATUS: return "WL_IDLE_STATUS";
+    case WL_NO_SSID_AVAIL: return "WL_NO_SSID_AVAIL (Network not found)";
+    case WL_SCAN_COMPLETED: return "WL_SCAN_COMPLETED";
+    case WL_CONNECTED: return "WL_CONNECTED";
+    case WL_CONNECT_FAILED: return "WL_CONNECT_FAILED (Wrong password?)";
+    case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+    case WL_DISCONNECTED: return "WL_DISCONNECTED";
+    case WL_NO_MODULE: return "WL_NO_MODULE (Hardware issue)";
+    default: return "UNKNOWN_STATUS (" + String(status) + ")";
+  }
 }
