@@ -2,9 +2,10 @@
 #define CREDENTIALS_H
 
 // WiFi credentials - keep this separate for security
-// Consider adding this to .gitignore
 extern char ssid[];
-extern char pass[];
+extern char wifiPass[];
+
+extern char ssid2[]; // Optional second SSID
 
 // API keys for widgets (if needed)
 extern char weatherApiKey[];

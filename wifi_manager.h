@@ -3,17 +3,22 @@
 
 #include <WiFiNINA.h>
 
-// WiFi credentials - move these to a separate credentials file
-extern char ssid[];
-extern char pass[];
+// WiFi status and server
 extern int wifiStatus;
+extern WiFiServer server;
+extern uint32_t lastWiFiCheck;
+extern uint32_t lastReconnectAttempt;
+extern bool reconnectionInProgress;
 
 // WiFi management functions
 void initializeWiFi();
-void connectToWiFi();
+void connectToWiFi(char *ssid, char *pass);
 void printWiFiStatus();
 bool isWiFiConnected();
 void handleWiFiReconnection();
+void attemptReconnection();
+void showReconnectionSuccess();
 void scanNetworks();
+String getWiFiStatusString(int status);
 
 #endif
