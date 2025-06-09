@@ -339,21 +339,26 @@ void drawSpotifyWidget(int x, int y, int width, int height) {
         matrix.fillRect(x + 4, y + 4, 2, 6, statusColor);
     }
 
+    // BOUNDARY PROTECTION: Clear text area first to prevent overflow into play/pause area
+    matrix.fillRect(x + 8, y + 1, width - 8, 8, bgColor);   // Clear track name area
+    matrix.fillRect(x + 8, y + 9, width - 8, 6, bgColor);   // Clear artist name area
+
     // Track name - WHITE and SIZE 1 (exactly like your global scrollText)
     matrix.setTextWrap(false);
+
+    // Track name - let it scroll normally, matrix will clip at boundaries
     matrix.setCursor(x + 8 + spotifyTitleScroll, y + 1);
     matrix.setTextColor(matrix.color565(255, 255, 255)); // Pure white
     matrix.setTextSize(1);
     matrix.print(currentSpotifyTrack.trackName);
 
-    // Artist name - DARK GRAY (exactly like your global scrollText)
+    // Artist name - let it scroll normally, matrix will clip at boundaries
     matrix.setTextWrap(false);
     matrix.setCursor(x + 8 + spotifyArtistScroll, y + 9);
     matrix.setTextColor(matrix.color565(102, 95, 95)); // Darker gray
     matrix.setTextSize(1);
     matrix.print(currentSpotifyTrack.artistName);
 }
-
 
 void drawPlayingBars(int x, int y, uint16_t color) {
     static uint8_t barFrame = 0;
