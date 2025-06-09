@@ -277,26 +277,27 @@ void parseSpotifyResponseFast(String jsonString) {
 
 // Replace the drawSpotifyWidget function with the corrected version
 void drawSpotifyWidget(int x, int y, int width, int height) {
+    // Remove scrolling for now
     // Update scroll animation every 120ms (same as your global scrollText)
-    if (millis() - lastSpotifyScroll > 120) {
-        // Simple scrolling logic for track name (exactly like your global scrollText)
-        if (currentSpotifyTrack.trackName.length() > 8) { // 8 chars fit in available space
-            spotifyTitleScroll--;
-            if (spotifyTitleScroll < -(int)(currentSpotifyTrack.trackName.length() * 6)) {
-                spotifyTitleScroll = WIDTH;
-            }
-        }
-
-        // Simple scrolling logic for artist name
-        if (currentSpotifyTrack.artistName.length() > 8) { // 8 chars fit in available space
-            spotifyArtistScroll--;
-            if (spotifyArtistScroll < -(int)(currentSpotifyTrack.artistName.length() * 6)) {
-                spotifyArtistScroll = WIDTH;
-            }
-        }
-
-        lastSpotifyScroll = millis();
-    }
+//    if (millis() - lastSpotifyScroll > 120) {
+//        // Simple scrolling logic for track name (exactly like your global scrollText)
+//        if (currentSpotifyTrack.trackName.length() > 8) { // 8 chars fit in available space
+//            spotifyTitleScroll--;
+//            if (spotifyTitleScroll < -(int)(currentSpotifyTrack.trackName.length() * 6)) {
+//                spotifyTitleScroll = WIDTH;
+//            }
+//        }
+//
+//        // Simple scrolling logic for artist name
+//        if (currentSpotifyTrack.artistName.length() > 8) { // 8 chars fit in available space
+//            spotifyArtistScroll--;
+//            if (spotifyArtistScroll < -(int)(currentSpotifyTrack.artistName.length() * 6)) {
+//                spotifyArtistScroll = WIDTH;
+//            }
+//        }
+//
+//        lastSpotifyScroll = millis();
+//    }
 
     // Update progress every second
     if (currentSpotifyTrack.isPlaying && millis() - lastSpotifyProgress > 1000) {
@@ -347,14 +348,18 @@ void drawSpotifyWidget(int x, int y, int width, int height) {
     matrix.setTextWrap(false);
 
     // Track name - let it scroll normally, matrix will clip at boundaries
-    matrix.setCursor(x + 8 + spotifyTitleScroll, y + 1);
+//    matrix.setCursor(x + 8 + spotifyTitleScroll, y + 1);
+    matrix.setCursor(x + 8, y + 1);
+
     matrix.setTextColor(matrix.color565(255, 255, 255)); // Pure white
     matrix.setTextSize(1);
     matrix.print(currentSpotifyTrack.trackName);
 
     // Artist name - let it scroll normally, matrix will clip at boundaries
     matrix.setTextWrap(false);
-    matrix.setCursor(x + 8 + spotifyArtistScroll, y + 9);
+//    matrix.setCursor(x + 8 + spotifyArtistScroll, y + 9);
+    matrix.setCursor(x + 8, y + 9);
+
     matrix.setTextColor(matrix.color565(102, 95, 95)); // Darker gray
     matrix.setTextSize(1);
     matrix.print(currentSpotifyTrack.artistName);
