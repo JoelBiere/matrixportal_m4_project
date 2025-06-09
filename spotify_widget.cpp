@@ -12,8 +12,8 @@ static bool authenticationComplete = false;
 
 // Forward declarations
 bool refreshSpotifyToken();
-bool fetchCurrentlyPlaying();
-void parseSpotifyResponse(String jsonString);
+bool fetchCurrentlyPlayingFast();
+void parseSpotifyResponseFast(String jsonString);
 
 // Simple Base64 encoding for Basic Auth
 String base64Encode(String input) {
@@ -57,12 +57,32 @@ String base64Encode(String input) {
 }
 
 void updateSpotifyData() {
-    Serial.println("Updating Spotify data...");
+    static uint32_t lastLightUpdate = 0; // For progress-only updates
 
     if (!isWiFiConnected()) {
         Serial.println("WiFi not connected - skipping Spotify update");
         return;
     }
+
+    uint32_t now = millis();
+
+    // Do light updates (just progress) every 10 seconds when playing
+    if (currentSpotifyTrack.isPlaying && currentSpotifyTrack.dataValid) {
+        if (now - lastLightUpdate > 10000) {
+            // Just increment progress without network call
+            currentSpotifyTrack.progressMs += (now - lastLightUpdate);
+            lastLightUpdate = now;
+            Serial.println("Light Spotify update (progress only)");
+            return;
+        }
+    }
+
+    // Full network update every 30 seconds or when no data
+    if (now - lastSpotifyUpdate < 30000 && currentSpotifyTrack.dataValid) {
+        return; // Skip this update
+    }
+
+    Serial.println("Full Spotify network update...");
 
     // Check if we need to refresh the access token
     if (millis() > tokenExpiry && spotifyRefreshToken.length() > 0) {
@@ -80,7 +100,7 @@ void updateSpotifyData() {
         return;
     }
 
-    bool success = fetchCurrentlyPlaying();
+    bool success = fetchCurrentlyPlayingFast();
 
     if (!success) {
         Serial.println("Failed to fetch currently playing track");
@@ -91,6 +111,7 @@ void updateSpotifyData() {
     }
 
     lastSpotifyUpdate = millis();
+    lastLightUpdate = millis();
 }
 
 bool refreshSpotifyToken() {
@@ -99,8 +120,8 @@ bool refreshSpotifyToken() {
         return false;
     }
 
-    WiFiSSLClient client; // Use SSL client
-    if (!client.connect("accounts.spotify.com", 443)) { // HTTPS port
+    WiFiSSLClient client;
+    if (!client.connect("accounts.spotify.com", 443)) {
         Serial.println("Failed to connect to Spotify accounts");
         return false;
     }
@@ -121,15 +142,14 @@ bool refreshSpotifyToken() {
     client.println();
     client.println(postData);
 
-    // Wait for response - NON-BLOCKING
+    // Wait for response with timeout
     unsigned long timeout = millis();
     while (client.available() == 0) {
-        if (millis() - timeout > 15000) { // Longer timeout
+        if (millis() - timeout > 5000) {
             Serial.println("Token refresh timeout");
             client.stop();
             return false;
         }
-        // REMOVED delay(100); - this was blocking!
     }
 
     // Skip headers
@@ -141,7 +161,8 @@ bool refreshSpotifyToken() {
 
     // Read response
     String response = "";
-    while (client.available()) {
+    timeout = millis();
+    while (client.available() && (millis() - timeout < 2000)) {
         char c = client.read();
         if (c >= 32 && c <= 126) {
             response += c;
@@ -164,49 +185,44 @@ bool refreshSpotifyToken() {
     return false;
 }
 
-bool fetchCurrentlyPlaying() {
-    WiFiSSLClient client; // Use SSL client
+bool fetchCurrentlyPlayingFast() {
+    WiFiSSLClient client;
+    client.setTimeout(2000); // Set socket timeout to 2 seconds
 
-    if (!client.connect("api.spotify.com", 443)) { // HTTPS port
+    if (!client.connect("api.spotify.com", 443)) {
         Serial.println("Failed to connect to Spotify API");
         return false;
     }
 
-    client.println("GET /v1/me/player/currently-playing HTTP/1.1");
-    client.println("Host: api.spotify.com");
-    client.println("Authorization: Bearer " + spotifyAccessToken);
-    client.println("Connection: close");
-    client.println();
+    // Send request quickly
+    client.print("GET /v1/me/player/currently-playing HTTP/1.1\r\n");
+    client.print("Host: api.spotify.com\r\n");
+    client.print("Authorization: Bearer ");
+    client.print(spotifyAccessToken);
+    client.print("\r\nConnection: close\r\n\r\n");
 
-    // Wait for response - NON-BLOCKING
+    // Very short wait for response start
     unsigned long timeout = millis();
     while (client.available() == 0) {
-        if (millis() - timeout > 15000) { // Longer timeout
+        if (millis() - timeout > 1500) { // Only 1.5 seconds
             Serial.println("Spotify API timeout");
             client.stop();
             return false;
         }
-        // REMOVED delay(100); - this was blocking!
     }
 
-    // Read status line
-    String statusLine = client.readStringUntil('\n');
-    Serial.println("API Status: " + statusLine);
-
-    // Skip remaining headers
-    while (client.available()) {
+    // Skip headers ultra-fast
+    bool headersComplete = false;
+    while (client.available() && !headersComplete) {
         String line = client.readStringUntil('\n');
-        line.trim();
-        if (line.length() == 0) break;
+        if (line.length() <= 1) headersComplete = true; // Empty line = end of headers
     }
 
-    // Read JSON response
+    // Read response with strict timeout
     String response = "";
-    while (client.available()) {
-        char c = client.read();
-        if (c >= 32 && c <= 126) {
-            response += c;
-        }
+    timeout = millis();
+    while (client.available() && (millis() - timeout < 1000)) { // Only 1 second for JSON
+        response += (char)client.read();
     }
     client.stop();
 
@@ -219,57 +235,66 @@ bool fetchCurrentlyPlaying() {
         return true;
     }
 
-    parseSpotifyResponse(response);
-    return true;
+    // Quick JSON validation
+    response.trim();
+    if (response.startsWith("{") && response.endsWith("}")) {
+        parseSpotifyResponseFast(response);
+        return true;
+    }
+
+    Serial.println("Invalid JSON received");
+    return false;
 }
 
-
-void parseSpotifyResponse(String jsonString) {
+void parseSpotifyResponseFast(String jsonString) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonString);
 
     if (error) {
-        Serial.print("Spotify JSON parsing failed: ");
+        Serial.print("JSON parse error: ");
         Serial.println(error.c_str());
         return;
     }
 
-    // Extract track information
     JsonObject item = doc["item"];
-    if (item.isNull()) {
-        Serial.println("No track item in response");
-        return;
+    if (!item.isNull()) {
+        currentSpotifyTrack.trackName = item["name"].as<String>();
+        currentSpotifyTrack.durationMs = item["duration_ms"].as<int>();
+        currentSpotifyTrack.progressMs = doc["progress_ms"].as<int>();
+        currentSpotifyTrack.isPlaying = doc["is_playing"].as<bool>();
+
+        JsonArray artists = item["artists"];
+        if (artists.size() > 0) {
+            currentSpotifyTrack.artistName = artists[0]["name"].as<String>();
+        }
+
+        currentSpotifyTrack.lastUpdate = millis();
+        currentSpotifyTrack.dataValid = true;
+
+        Serial.println("♪ " + currentSpotifyTrack.trackName + " - " + currentSpotifyTrack.artistName);
     }
-
-    currentSpotifyTrack.trackName = item["name"].as<String>();
-    currentSpotifyTrack.albumName = item["album"]["name"].as<String>();
-    currentSpotifyTrack.durationMs = item["duration_ms"].as<int>();
-    currentSpotifyTrack.progressMs = doc["progress_ms"].as<int>();
-    currentSpotifyTrack.isPlaying = doc["is_playing"].as<bool>();
-
-    // Extract artist name (first artist)
-    JsonArray artists = item["artists"];
-    if (artists.size() > 0) {
-        currentSpotifyTrack.artistName = artists[0]["name"].as<String>();
-    }
-
-    // Extract device info
-    JsonObject device = doc["device"];
-    if (!device.isNull()) {
-        currentSpotifyTrack.deviceName = device["name"].as<String>();
-    }
-
-    currentSpotifyTrack.lastUpdate = millis();
-    currentSpotifyTrack.dataValid = true;
-
-    Serial.println("Spotify updated: " + currentSpotifyTrack.trackName + " by " + currentSpotifyTrack.artistName);
 }
 
+// Replace the drawSpotifyWidget function with the corrected version
 void drawSpotifyWidget(int x, int y, int width, int height) {
-    // Update scroll animation every 200ms (slightly slower)
-    if (millis() - lastSpotifyScroll > 200) {
-        scrollSpotifyText(currentSpotifyTrack.trackName, spotifyTitleScroll, WIDTH); // Leave room for logo
-        scrollSpotifyText(currentSpotifyTrack.artistName, spotifyArtistScroll, WIDTH);
+    // Update scroll animation every 120ms (same as your global scrollText)
+    if (millis() - lastSpotifyScroll > 120) {
+        // Simple scrolling logic for track name (exactly like your global scrollText)
+        if (currentSpotifyTrack.trackName.length() > 8) { // 8 chars fit in available space
+            spotifyTitleScroll--;
+            if (spotifyTitleScroll < -(int)(currentSpotifyTrack.trackName.length() * 6)) {
+                spotifyTitleScroll = WIDTH;
+            }
+        }
+
+        // Simple scrolling logic for artist name
+        if (currentSpotifyTrack.artistName.length() > 8) { // 8 chars fit in available space
+            spotifyArtistScroll--;
+            if (spotifyArtistScroll < -(int)(currentSpotifyTrack.artistName.length() * 6)) {
+                spotifyArtistScroll = WIDTH;
+            }
+        }
+
         lastSpotifyScroll = millis();
     }
 
@@ -296,16 +321,17 @@ void drawSpotifyWidget(int x, int y, int width, int height) {
 
     matrix.fillRect(x, y, width, height, bgColor);
 
-    // Draw Spotify logo on the right side
-//    drawSpotifyLogo(x + width - 14, y + 1);
+    // Progress bar at top (y=0)
+    if (currentSpotifyTrack.durationMs > 0) {
+        drawSpotifyProgressBar(x, 0, width, currentSpotifyTrack.progressMs, currentSpotifyTrack.durationMs);
+    }
 
-    // Play/pause indicator - make it more prominent
+    // Play/pause indicator
     uint16_t statusColor = currentSpotifyTrack.isPlaying ?
                            matrix.color565(30, 215, 96) :   // Spotify green
                            matrix.color565(255, 100, 100);  // Light red for paused
 
     if (currentSpotifyTrack.isPlaying) {
-        // Animated playing bars instead of just a triangle
         drawPlayingBars(x + 1, y + 3, statusColor);
     } else {
         // Pause symbol - two vertical bars
@@ -313,62 +339,22 @@ void drawSpotifyWidget(int x, int y, int width, int height) {
         matrix.fillRect(x + 4, y + 4, 2, 6, statusColor);
     }
 
-    // Track name - better positioned and colored
-    matrix.setCursor(x + 8, y + 1);
+    // Track name - WHITE and SIZE 1 (exactly like your global scrollText)
+    matrix.setTextWrap(false);
+    matrix.setCursor(x + 8 + spotifyTitleScroll, y + 1);
     matrix.setTextColor(matrix.color565(255, 255, 255)); // Pure white
     matrix.setTextSize(1);
+    matrix.print(currentSpotifyTrack.trackName);
 
-    String displayTitle = currentSpotifyTrack.trackName;
-    if (displayTitle.length() > 8) {
-        int start = spotifyTitleScroll;
-        int end = min(start + 8, (int)displayTitle.length());
-        displayTitle = displayTitle.substring(start, end);
-    }
-    matrix.print(displayTitle);
-
-    // Artist name - smaller and dimmer
-    matrix.setCursor(x + 8, y + 9);
-    matrix.setTextColor(matrix.color565(180, 180, 180)); // Light gray
-
-    String displayArtist = currentSpotifyTrack.artistName;
-    if (displayArtist.length() > 8) {
-        int start = spotifyArtistScroll;
-        int end = min(start + 8, (int)displayArtist.length());
-        displayArtist = displayArtist.substring(start, end);
-    }
-    matrix.print(displayArtist);
-
-    // Progress bar at bottom - make it more prominent
-    if (currentSpotifyTrack.durationMs > 0) {
-        drawSpotifyProgressBar(x, 0, width, currentSpotifyTrack.progressMs, currentSpotifyTrack.durationMs);
-    }
+    // Artist name - DARK GRAY (exactly like your global scrollText)
+    matrix.setTextWrap(false);
+    matrix.setCursor(x + 8 + spotifyArtistScroll, y + 9);
+    matrix.setTextColor(matrix.color565(102, 95, 95)); // Darker gray
+    matrix.setTextSize(1);
+    matrix.print(currentSpotifyTrack.artistName);
 }
 
-// New function to draw a recognizable Spotify logo
-void drawSpotifyLogo(int x, int y) {
-    uint16_t spotifyGreen = matrix.color565(30, 215, 96); // Official Spotify green
-    uint16_t darkGreen = matrix.color565(15, 107, 48);    // Darker shade
 
-    // Draw a circular background (simplified)
-    matrix.fillRect(x, y + 1, 12, 10, matrix.color565(0, 0, 0)); // Black background
-    matrix.drawRect(x, y + 1, 12, 10, darkGreen); // Border
-
-    // Draw simplified sound waves (Spotify-ish curves)
-    // Top curve
-    matrix.drawLine(x + 2, y + 3, x + 9, y + 3, spotifyGreen);
-    matrix.drawPixel(x + 1, y + 4, spotifyGreen);
-    matrix.drawPixel(x + 10, y + 4, spotifyGreen);
-
-    // Middle curve
-    matrix.drawLine(x + 3, y + 6, x + 8, y + 6, spotifyGreen);
-    matrix.drawPixel(x + 2, y + 7, spotifyGreen);
-    matrix.drawPixel(x + 9, y + 7, spotifyGreen);
-
-    // Bottom curve
-    matrix.drawLine(x + 4, y + 9, x + 7, y + 9, spotifyGreen);
-}
-
-// New function for animated playing bars
 void drawPlayingBars(int x, int y, uint16_t color) {
     static uint8_t barFrame = 0;
     static uint32_t lastBarUpdate = 0;
@@ -393,7 +379,6 @@ void drawPlayingBars(int x, int y, uint16_t color) {
     matrix.fillRect(x + 4, y + 8 - bar3Height, 1, bar3Height, color);
 }
 
-// Improved progress bar with Spotify styling
 void drawSpotifyProgressBar(int x, int y, int width, int progress, int total) {
     if (total <= 0) return;
 
@@ -414,47 +399,6 @@ void drawSpotifyProgressBar(int x, int y, int width, int progress, int total) {
     }
 }
 
-void scrollSpotifyText(String& text, int& scrollPos, int maxChars) {
-    if (text.length() <= maxChars) {
-        scrollPos = 0;
-        return;
-    }
-
-    static uint32_t lastPauseTime = 0;
-    static bool isPausing = false;
-    static uint8_t pauseDirection = 0; // 0 = not pausing, 1 = pausing at start, 2 = pausing at end
-
-    // Check if we should be pausing
-    if (isPausing) {
-        if (millis() - lastPauseTime > 2000) { // 2 second pause
-            isPausing = false;
-            pauseDirection = 0;
-        } else {
-            return; // Still pausing, don't change scroll position
-        }
-    }
-
-    if (spotifyScrollDirection) {
-        scrollPos++;
-        if (scrollPos + maxChars >= text.length()) {
-            spotifyScrollDirection = false;
-            isPausing = true;
-            pauseDirection = 2; // Pausing at end
-            lastPauseTime = millis();
-        }
-    } else {
-        scrollPos--;
-        if (scrollPos <= 0) {
-            scrollPos = 0;
-            spotifyScrollDirection = true;
-            isPausing = true;
-            pauseDirection = 1; // Pausing at start
-            lastPauseTime = millis();
-        }
-    }
-}
-
-// Manual token setting function (for initial setup)
 void setSpotifyTokens(String accessToken, String refreshToken) {
     spotifyAccessToken = accessToken;
     spotifyRefreshToken = refreshToken;
@@ -463,28 +407,23 @@ void setSpotifyTokens(String accessToken, String refreshToken) {
     Serial.println("Spotify tokens set manually");
 }
 
-// Replace the getSpotifyAuthURL function in spotify_widget.cpp with this:
-
-// Replace the getSpotifyAuthURL function in spotify_widget.cpp:
-
 String getSpotifyAuthURL() {
     String authURL = "https://accounts.spotify.com/authorize?";
     authURL += "client_id=" + String(spotifyClientId);
     authURL += "&response_type=code";
-    authURL += "&redirect_uri=https://spotify.com";  // Fake redirect - matches app settings
+    authURL += "&redirect_uri=https://spotify.com";
     authURL += "&scope=user-read-currently-playing,user-read-playback-state";
-    authURL += "&show_dialog=true";  // Force consent screen every time
+    authURL += "&show_dialog=true";
 
     return authURL;
 }
 
-
 bool exchangeCodeForTokens(String authCode) {
-    WiFiSSLClient client; // Use WiFiSSLClient for HTTPS
+    WiFiSSLClient client;
 
     Serial.println("Connecting to accounts.spotify.com...");
 
-    if (!client.connect("accounts.spotify.com", 443)) { // HTTPS port 443
+    if (!client.connect("accounts.spotify.com", 443)) {
         Serial.println("Failed to connect to Spotify accounts");
         return false;
     }
@@ -514,15 +453,14 @@ bool exchangeCodeForTokens(String authCode) {
 
     Serial.println("Waiting for response...");
 
-    // Wait for response with longer timeout - NON-BLOCKING
+    // Wait for response with shorter timeout
     unsigned long timeout = millis();
     while (client.available() == 0) {
-        if (millis() - timeout > 15000) { // Increased timeout to 15 seconds
+        if (millis() - timeout > 10000) {
             Serial.println("Token exchange timeout");
             client.stop();
             return false;
         }
-        // REMOVED delay(100); - this was blocking the animations!
     }
 
     Serial.println("Response received, reading headers...");
@@ -540,9 +478,10 @@ bool exchangeCodeForTokens(String authCode) {
 
     Serial.println("Reading JSON response...");
 
-    // Read JSON response
+    // Read JSON response with timeout
     String response = "";
-    while (client.available()) {
+    timeout = millis();
+    while (client.available() && (millis() - timeout < 3000)) {
         char c = client.read();
         if (c >= 32 && c <= 126) {
             response += c;
@@ -597,4 +536,3 @@ bool exchangeCodeForTokens(String authCode) {
         return false;
     }
 }
-

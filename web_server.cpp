@@ -60,6 +60,43 @@ void handleWebClient(WiFiClient client)
     Serial.println("Client disconnected");
 }
 
+// helper function to extract a parameter value from the request
+String extractCodeFromURL(String url) {
+    // Handle both full URLs and just the code parameter
+    String code = "";
+
+    // First, try to find ?code= in the URL
+    int codeStart = url.indexOf("?code=");
+    if (codeStart == -1) {
+        // Maybe it's after other parameters, try &code=
+        codeStart = url.indexOf("&code=");
+    }
+
+    if (codeStart >= 0) {
+        // Found the code parameter, extract it
+        codeStart += (url.charAt(codeStart) == '?') ? 6 : 6; // Skip "?code=" or "&code="
+        int codeEnd = url.indexOf('&', codeStart);
+        if (codeEnd == -1) {
+            codeEnd = url.length();
+        }
+        code = url.substring(codeStart, codeEnd);
+
+        Serial.println("Extracted code from URL: " + code);
+        return code;
+    }
+
+    // If no ?code= found, maybe the user just pasted the code directly
+    // Check if it looks like a Spotify auth code (alphanumeric, reasonable length)
+    url.trim();
+    if (url.length() > 20 && url.length() < 200 && url.indexOf(' ') == -1) {
+        Serial.println("Treating input as direct code: " + url);
+        return url;
+    }
+
+    Serial.println("Could not extract code from: " + url);
+    return "";
+}
+
 void processRequest(WiFiClient client, String request)
 {
     Serial.println("DEBUG: Received request: " + request);
@@ -136,15 +173,44 @@ void processRequest(WiFiClient client, String request)
         setSpotifyTokens(accessToken, refreshToken);
         client.println("Spotify tokens set successfully");
     }
-    else if (request.indexOf("GET /spotify_code?code=") >= 0) {
-        String authCode = extractString(request, "code=");
-        Serial.println("Received authorization code: " + authCode);
+//    else if (request.indexOf("GET /spotify_code?code=") >= 0) {
+//        String authCode = extractString(request, "code=");
+//        Serial.println("Received authorization code: " + authCode);
+//
+//        if (exchangeCodeForTokens(authCode)) {
+//            client.println("Success! Spotify tokens obtained and saved.");
+//            client.println("You can now select the Spotify widget.");
+//        } else {
+//            client.println("Failed to exchange authorization code for tokens.");
+//        }
+//    }
+    else if (request.indexOf("GET /spotify_url?url=") >= 0) {
+        String fullURL = extractString(request, "url=");
 
-        if (exchangeCodeForTokens(authCode)) {
-            client.println("Success! Spotify tokens obtained and saved.");
-            client.println("You can now select the Spotify widget.");
+        // URL decode the input
+        fullURL.replace("%3A", ":");
+        fullURL.replace("%2F", "/");
+        fullURL.replace("%3F", "?");
+        fullURL.replace("%3D", "=");
+        fullURL.replace("%26", "&");
+
+        String authCode = extractCodeFromURL(fullURL);
+
+        if (authCode.length() > 0) {
+            Serial.println("Processing extracted authorization code: " + authCode);
+
+            if (exchangeCodeForTokens(authCode)) {
+                client.println("Success! Spotify tokens obtained from URL.");
+                client.println("Code extracted: " + authCode.substring(0, 10) + "...");
+                client.println("You can now select the Spotify widget.");
+            } else {
+                client.println("Failed to exchange authorization code for tokens.");
+                client.println("Extracted code: " + authCode.substring(0, 10) + "...");
+            }
         } else {
-            client.println("Failed to exchange authorization code for tokens.");
+            client.println("Error: Could not extract authorization code from URL.");
+            client.println("Please make sure you're pasting the full redirect URL that contains '?code='");
+            client.println("Example: https://spotify.com/?code=AQC1234567890...");
         }
     }
 
@@ -244,23 +310,27 @@ void sendControlPage(WiFiClient client)
     client.println("</div>");
     client.println("</div>");
 
-    // Spotify Setup Section
+    // Spotify Setup Section - UPDATED
     client.println("<div class='section'>");
     client.println("<h3>🎵 Spotify Setup:</h3>");
     client.println("<p><strong>Step 1:</strong> Get authorization URL</p>");
     client.println("<button class='spotify-btn' onclick='spotifyAuth()'>🔑 Get Auth URL</button>");
     client.println("<div id='authUrlDisplay' style='margin: 10px 0; padding: 10px; background: #444; border-radius: 4px; word-break: break-all;'></div>");
 
-    client.println("<p><strong>Step 2:</strong> Visit the URL, authorize, then paste the code from the redirect URL</p>");
-    client.println("<label>Authorization Code:</label><br>");
-    client.println("<input type='text' id='authCode' placeholder='Paste authorization code here' style='width: 300px;'><br>");
-    client.println("<button class='control-btn' onclick='submitAuthCode()'>🔄 Exchange for Tokens</button>");
+    client.println("<p><strong>Step 2:</strong> Visit the URL above, authorize, then paste the FULL redirect URL below</p>");
+    client.println("<label>Redirect URL (paste the complete URL you get redirected to):</label><br>");
+    client.println("<input type='text' id='redirectUrl' placeholder='https://spotify.com/?code=AQC1234567890...' style='width: 400px;'><br>");
+    client.println("<button class='control-btn' onclick='submitRedirectURL()'>🔄 Extract Code & Get Tokens</button>");
+
+    client.println("<p style='font-size: 12px; color: #888;'>");
+    client.println("💡 Tip: After clicking authorize on Spotify, you'll be redirected to a page that might show an error. ");
+    client.println("That's normal! Just copy the ENTIRE URL from your browser's address bar and paste it above.");
+    client.println("</p>");
 
     client.println("<div id='spotifyStatus' style='margin-top: 10px; padding: 10px; background: #444; border-radius: 4px;'>");
     client.println("Click 'Get Auth URL' to start setup");
     client.println("</div>");
     client.println("</div>");
-
 
 
     client.println("<script>");
@@ -304,22 +374,31 @@ void sendControlPage(WiFiClient client)
     client.println("  fetch('/spotify_auth').then(r => r.text()).then(data => {");
     client.println("    const url = data.split('Spotify Auth URL: ')[1].split('\\n')[0];");
     client.println("    document.getElementById('authUrlDisplay').innerHTML = ");
-    client.println("      '<a href=\"' + url + '\" target=\"_blank\">Click here to authorize</a><br><small>' + url + '</small>';");
+    client.println("      '<a href=\"' + url + '\" target=\"_blank\" style=\"color: #1DB954; text-decoration: none;\">🔗 Click here to authorize Spotify</a><br><small style=\"color: #888;\">' + url + '</small>';");
     client.println("    document.getElementById('spotifyStatus').innerHTML = ");
-    client.println("      'Click the link above, authorize the app, then copy the code from the redirect URL';");
+    client.println("      '1. Click the link above to authorize<br>2. Copy the complete redirect URL<br>3. Paste it in the text box below';");
     client.println("  });");
     client.println("}");
 
-    client.println("function submitAuthCode() {");
-    client.println("  const code = document.getElementById('authCode').value;");
-    client.println("  if (code) {");
-    client.println("    document.getElementById('spotifyStatus').innerHTML = 'Exchanging code for tokens...';");
-    client.println("    fetch('/spotify_code?code=' + encodeURIComponent(code))");
-    client.println("      .then(r => r.text()).then(data => {");
-    client.println("        document.getElementById('spotifyStatus').innerHTML = data;");
-    client.println("      });");
+    client.println("function submitRedirectURL() {");
+    client.println("  const url = document.getElementById('redirectUrl').value.trim();");
+    client.println("  if (url) {");
+    client.println("    if (url.includes('code=')) {");
+    client.println("      document.getElementById('spotifyStatus').innerHTML = 'Extracting code and exchanging for tokens...';");
+    client.println("      fetch('/spotify_url?url=' + encodeURIComponent(url))");
+    client.println("        .then(r => r.text()).then(data => {");
+    client.println("          document.getElementById('spotifyStatus').innerHTML = data.replace(/\\n/g, '<br>');");
+    client.println("          if (data.includes('Success!')) {");
+    client.println("            document.getElementById('redirectUrl').value = '';");
+    client.println("            document.getElementById('spotifyStatus').innerHTML += '<br><br>✅ <strong>Setup complete! You can now use the Spotify widget.</strong>';");
+    client.println("          }");
+    client.println("        });");
+    client.println("    } else {");
+    client.println("      document.getElementById('spotifyStatus').innerHTML = ");
+    client.println("        '❌ Error: The URL should contain \"code=\". Please make sure you\\'re pasting the full redirect URL from Spotify.';");
+    client.println("    }");
     client.println("  } else {");
-    client.println("    document.getElementById('spotifyStatus').innerHTML = 'Please enter the authorization code';");
+    client.println("    document.getElementById('spotifyStatus').innerHTML = 'Please paste the redirect URL from Spotify';");
     client.println("  }");
     client.println("}");
 

@@ -105,10 +105,7 @@ void setSpotifyTokens(String accessToken, String refreshToken);
 String getSpotifyAuthURL();
 bool exchangeCodeForTokens(String authCode);
 bool refreshSpotifyToken();
-bool fetchCurrentlyPlaying();
-void parseSpotifyResponse(String jsonString);
-void drawProgressBar(int x, int y, int width, int progress, int total);
-void scrollSpotifyText(String& text, int& scrollPos, int maxWidth);
+
 
 void drawSpotifyLogo(int x, int y);
 void drawPlayingBars(int x, int y, uint16_t color);
