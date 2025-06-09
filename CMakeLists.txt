@@ -34,6 +34,8 @@ set(SOURCES
         matrix_display.cpp
         widgets.cpp
         credentials.cpp
+        weather_widget.cpp
+        spotify_widget.cpp    # NEW: Spotify widget file
 )
 
 # Add header files explicitly for better IDE support

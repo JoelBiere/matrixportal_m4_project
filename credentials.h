@@ -11,4 +11,8 @@ extern char ssid2[]; // Optional second SSID
 extern char weatherApiKey[];
 extern char timeZone[];
 
+// Spotify API credentials
+extern char spotifyClientId[];
+extern char spotifyClientSecret[];
+
 #endif

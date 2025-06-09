@@ -220,7 +220,15 @@ void animateTruck() {
   // Always draw truck at current position - NO CLEARING HERE
   int baseY = ANIMATION_ZONE_Y + 5;
 
-   // Truck cab (more realistic shape)
+    // road background
+    matrix.drawLine(0, 31, WIDTH, 31, matrix.color565(50, 50, 50));  // Dark gray road
+    matrix.drawLine(0, 20, WIDTH, 20, matrix.color565(50, 50, 50));  // Dark gray road
+    // dashed line
+    for (int x = 0; x < WIDTH; x += 8) {
+      matrix.drawLine(x, 25, x + 4, 25, matrix.color565(252, 225, 15));  // Yellow dashed line
+    }
+
+    // Truck cab (more realistic shape)
     matrix.fillRect(truckPosition, 20, 10, 8, matrix.color565(0, 100, 200));     // Blue cab
     matrix.fillRect(truckPosition + 1, 19, 8, 6, matrix.color565(0, 150, 255));  // Lighter blue windows
 

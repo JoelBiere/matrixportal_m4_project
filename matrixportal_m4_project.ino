@@ -3,7 +3,7 @@
 #include "web_server.h"
 #include "matrix_display.h"
 #include "widgets.h"
-
+#include "Arduino.h"
 
 WiFiServer server(80);
 int wifiStatus = WL_IDLE_STATUS;
