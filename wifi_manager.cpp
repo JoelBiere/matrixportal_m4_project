@@ -23,7 +23,6 @@ void initializeWiFi() {
     connectToWiFi(ssid, wifiPass);
     if (wifiStatus == WL_CONNECTED) {
         printWiFiStatus();
-//        server.begin(); // Start the web server
         showMatrixIPAddress();
         Serial.println("Web server started successfully");
     }
@@ -33,7 +32,6 @@ void initializeWiFi() {
         connectToWiFi(ssid2, wifiPass);
         if (wifiStatus == WL_CONNECTED) {
             printWiFiStatus();
-//            server.begin(); // Start the web server
             showMatrixIPAddress();
             Serial.println("Web server started successfully");
         }

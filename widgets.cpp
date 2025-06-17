@@ -103,9 +103,6 @@ void updateWidgets()
             updateSpotifyData();
         }
     }
-
-    // Draw widgets only in top zone
-    drawWidget(currentWidget, 0, 0, 64, WIDGET_ZONE_HEIGHT);
 }
 
 void drawClockWidget(int x, int y, int width, int height)

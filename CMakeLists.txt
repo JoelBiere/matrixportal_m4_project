@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
 
 # Arduino paths - adjust these to match your system
-set(SYSTEM_USER "joelb")
+set(SYSTEM_USER "jbiere")
 set(ARDUINO_PATH "C:/Users/${SYSTEM_USER}/Documents/Arduino")
 set(ARDUINO_LIBRARIES_PATH "${ARDUINO_PATH}/libraries")
 
@@ -21,6 +21,7 @@ include_directories(
         ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
         ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
         ${ARDUINO_LIBRARIES_PATH}/ArduinoJson/src
+        ${ARDUINO_LIBRARIES_PATH}/FreeRTOS_SAMD51/src    # NEW: FreeRTOS support
 )
 
 # Add all your source files
@@ -36,6 +37,8 @@ set(SOURCES
         credentials.cpp
         weather_widget.cpp
         spotify_widget.cpp    # NEW: Spotify widget file
+        matrix_config.cpp
+
 )
 
 # Add header files explicitly for better IDE support
@@ -192,6 +195,12 @@ public:
     String readStringUntil(char terminator) { return \"\"; }
 };
 
+class WiFiSSLClient : public WiFiClient {
+public:
+    WiFiSSLClient() : WiFiClient() {}
+    void setTimeout(int timeout) {}
+};
+
 class WiFiServer {
 public:
     WiFiServer(int port) {}
@@ -210,6 +219,7 @@ public:
     int scanNetworks() { return 1; }
     const char* SSID(int index) { return \"MockNetwork\"; }
     long RSSI(int index) { return -60; }
+    void disconnect() {}
 };
 
 extern WiFiClass WiFi;
@@ -231,6 +241,13 @@ public:
     T as() const { return T(); }
 
     JsonObject operator[](const char* key) const { return JsonObject(); }
+    bool isNull() const { return false; }
+};
+
+class JsonArray {
+public:
+    int size() const { return 1; }
+    JsonObject operator[](int index) const { return JsonObject(); }
 };
 
 enum DeserializationError {
@@ -245,10 +262,64 @@ public:
 };
 
 typedef StaticJsonDocument<2048> DynamicJsonDocument;
+typedef StaticJsonDocument<2048> JsonDocument;
 
 DeserializationError deserializeJson(DynamicJsonDocument& doc, const std::string& input) {
     return Ok;
 }
+
+DeserializationError deserializeJson(JsonDocument& doc, const std::string& input) {
+    return Ok;
+}
+
+#endif
+")
+
+# Create mock FreeRTOS_SAMD51.h for IDE support
+file(WRITE ${CMAKE_BINARY_DIR}/FreeRTOS_SAMD51.h
+        "#ifndef FREERTOS_SAMD51_H
+#define FREERTOS_SAMD51_H
+
+#include <stdint.h>
+
+// Mock FreeRTOS types and constants for IDE support
+typedef void* TaskHandle_t;
+typedef void* SemaphoreHandle_t;
+typedef uint32_t TickType_t;
+typedef int BaseType_t;
+
+// FreeRTOS constants
+#define pdPASS 1
+#define pdFAIL 0
+#define pdTRUE 1
+#define pdFALSE 0
+#define portMAX_DELAY 0xFFFFFFFF
+
+// Task priorities
+#define tskIDLE_PRIORITY 0
+#define configMAX_PRIORITIES 5
+
+// Time conversion macros
+#define pdMS_TO_TICKS(ms) (ms)
+#define portTICK_PERIOD_MS 1
+
+// Mock FreeRTOS functions
+BaseType_t xTaskCreate(void (*taskFunction)(void*), const char* name,
+                      uint16_t stackSize, void* parameters,
+                      uint8_t priority, TaskHandle_t* handle) { return pdPASS; }
+
+void vTaskStartScheduler() {}
+void vTaskDelay(TickType_t ticks) {}
+void vTaskDelayUntil(TickType_t* previousWakeTime, TickType_t increment) {}
+TickType_t xTaskGetTickCount() { return 0; }
+
+// Semaphore functions
+SemaphoreHandle_t xSemaphoreCreateMutex() { return (SemaphoreHandle_t)1; }
+BaseType_t xSemaphoreTake(SemaphoreHandle_t semaphore, TickType_t timeout) { return pdPASS; }
+BaseType_t xSemaphoreGive(SemaphoreHandle_t semaphore) { return pdPASS; }
+
+// Memory functions
+size_t xPortGetFreeHeapSize() { return 50000; }
 
 #endif
 ")
@@ -268,6 +339,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${ARDUINO_LIBRARIES_PATH}/Adafruit_BusIO
         ${ARDUINO_LIBRARIES_PATH}/Adafruit_GFX_Library
         ${ARDUINO_LIBRARIES_PATH}/ArduinoJson/src
+        ${ARDUINO_LIBRARIES_PATH}/FreeRTOS_SAMD51/src
 )
 
 # Arduino-specific definitions that are safe for IDE analysis
@@ -285,6 +357,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         BOARD_NAME="MatrixPortal M4"
         VARIANT_QSPI_BAUD_DEFAULT=50000000
         ENABLE_CACHE
+        # FreeRTOS definitions for IDE
+        FREERTOS_SAMD51
+        configUSE_16_BIT_TICKS=0
+        configMAX_PRIORITIES=5
+        configMINIMAL_STACK_SIZE=128
 )
 
 # Set C++ standard for the target
@@ -312,7 +389,7 @@ add_custom_target(arduino_compile
 )
 
 add_custom_target(arduino_upload
-        COMMAND arduino-cli compile --upload -p COM4 --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
+        COMMAND arduino-cli compile --upload -p COM8 --fqbn adafruit:samd:adafruit_matrixportal_m4 ${CMAKE_SOURCE_DIR}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Uploading with arduino-cli"
         DEPENDS arduino_compile
@@ -322,4 +399,12 @@ add_custom_target(deploy
         COMMAND ${CMAKE_SOURCE_DIR}/deploy.bat
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Running deploy.bat script"
+)
+
+# FreeRTOS compatibility test target
+add_custom_target(freertos_test
+        COMMAND echo "Testing FreeRTOS compatibility..."
+        COMMAND arduino-cli compile --fqbn adafruit:samd:adafruit_matrixportal_m4 --library FreeRTOS_SAMD51 ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Testing FreeRTOS compilation compatibility"
 )

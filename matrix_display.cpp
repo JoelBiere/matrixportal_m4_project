@@ -1,5 +1,6 @@
 #include "matrix_display.h"
 #include "widgets.h"
+#include "config.h"
 
 // Color definitions
 uint16_t colors[] = {
@@ -42,8 +43,9 @@ void updateMatrixDisplay() {
   matrix.fillScreen(0);
 
   // Update widget zone (y=0-14)
-  updateWidgets();
-
+    //  updateWidgets();
+    // Draw widgets only in top zone
+    drawWidget(currentWidget, 0, 0, 64, WIDGET_ZONE_HEIGHT);
   // Update animation zone (y=15-31) based on current animation
   updateAnimationZone();
 

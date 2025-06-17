@@ -4,7 +4,6 @@
 
 void initializeWebServer()
 {
-    // Server initialization happens in wifi_manager
     server.begin();
     Serial.println("Web server ready");
 }
