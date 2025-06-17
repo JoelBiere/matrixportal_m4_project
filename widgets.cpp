@@ -98,7 +98,7 @@ void updateWidgets()
     // Only update Spotify data if Spotify widget is selected
     if (currentWidget == WIDGET_SPOTIFY)
     {
-        if (now - lastSpotifyUpdate > 30000 || lastSpotifyUpdate == 0)
+        if (now - lastSpotifyUpdate > 10000 || lastSpotifyUpdate == 0)
         {
             updateSpotifyData();
         }
