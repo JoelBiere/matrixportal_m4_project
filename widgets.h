@@ -106,6 +106,12 @@ String getSpotifyAuthURL();
 bool exchangeCodeForTokens(String authCode);
 bool refreshSpotifyToken();
 
+// Microsoft Graph specific functions
+String getMsGraphAuthURL();
+bool exchangeMsGraphCodeForTokens(String authCode);
+bool refreshMsGraphToken();
+bool isMsGraphTokenValid();
+void setMsGraphTokens(String accessToken, String refreshToken, unsigned long expiryTime);
 
 void drawSpotifyLogo(int x, int y);
 void drawPlayingBars(int x, int y, uint16_t color);
@@ -135,6 +141,6 @@ String getDebugWeatherInfo();
 
 // Helper functions
 String formatTime(bool is24Hour);
-uint16_t getStatusColor(String status);
+// Use getTeamsStatusColor from teams_widget.h instead of getStatusColor
 
 #endif

@@ -138,26 +138,7 @@ String formatTime(bool is24Hour)
     }
 }
 
-void drawTeamsWidget(int x, int y, int width, int height)
-{
-    uint16_t dimColor = matrix.color565(
-            ((currentTeams.statusColor >> 11) & 0x1F) << 1, // Dim red
-            ((currentTeams.statusColor >> 5) & 0x3F) << 1, // Dim green
-            (currentTeams.statusColor & 0x1F) << 1 // Dim blue
-    );
-
-    matrix.setCursor(x, y + 8);
-    matrix.setTextColor(dimColor);
-    matrix.setTextSize(1);
-
-    // Show first few characters of status
-    String displayText = currentTeams.status;
-    if (displayText.length() > 8)
-    {
-        displayText = displayText.substring(0, 8);
-    }
-    matrix.print(displayText);
-}
+// Teams widget is now defined in teams_widget.cpp
 
 void drawStocksWidget(int x, int y, int width, int height)
 {
@@ -182,23 +163,8 @@ void resetWidgetZone(int x, int y, int width, int height)
     matrix.setTextColor(matrix.color565(255, 255, 255)); // White text
 }
 
-void updateTeamsData()
-{
-    // Simulate teams status update
-    String statuses[] = {"Available", "In Meeting", "Busy", "Away"};
-    currentTeams.status = statuses[random(0, 4)];
-    currentTeams.statusColor = getStatusColor(currentTeams.status);
-    currentTeams.lastUpdate = millis();
-    Serial.println("Teams data updated");
-}
 
-uint16_t getStatusColor(String status)
-{
-    if (status == "Available") return 0x07E0; // Green
-    if (status == "Busy") return 0xF800; // Red
-    if (status == "Away") return 0xFFE0; // Yellow
-    return 0x001F; // Blue for "In Meeting"
-}
+// Status color function is now in teams_widget.cpp
 
 void updateStockData()
 {

@@ -59,6 +59,11 @@ void handleWebClient(WiFiClient client)
     Serial.println("Client disconnected");
 }
 
+// Convert IPAddress to String (since toString isn't available)
+String ipAddressToString(IPAddress ip) {
+    return String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
+}
+
 // helper function to extract a parameter value from the request
 String extractCodeFromURL(String url) {
     // Handle both full URLs and just the code parameter
@@ -212,7 +217,139 @@ void processRequest(WiFiClient client, String request)
             client.println("Example: https://spotify.com/?code=AQC1234567890...");
         }
     }
+    // Microsoft Graph (Teams) authorization endpoint
+    else if (request.indexOf("GET /msgraph_auth") >= 0) {
+        String authURL = getMsGraphAuthURL();
+        client.println("<!DOCTYPE html>");
+        client.println("<html><head><title>Microsoft Graph Authorization</title>");
+        client.println("<style>");
+        client.println("body{font-family:Arial,sans-serif;margin:20px;background:#222;color:#fff;line-height:1.5;}");
+        client.println("h1,h2{color:#0078d4;} a{color:#0078d4;} .btn{background:#0078d4;color:#fff;padding:10px 20px;border:none;border-radius:4px;text-decoration:none;display:inline-block;margin:10px 0;}");
+        client.println(".container{max-width:800px;margin:0 auto;background:#333;padding:20px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,0.5);}");
+        client.println(".code-box{background:#444;border:1px solid #666;padding:15px;margin:10px 0;border-radius:4px;word-break:break-all;font-family:monospace;color:#4CAF50;}");
+        client.println(".step{margin-bottom:20px;border-left:4px solid #0078d4;padding-left:15px;}");
+        client.println("input[type=text]{background:#444;color:#fff;padding:8px;border:1px solid #666;width:80%;border-radius:4px;}");
+        client.println("</style>");
+        client.println("<script>");
+        client.println("function extractAndSubmit() {");
+        client.println("  const url = new URL(window.location.href);");
+        client.println("  const code = url.searchParams.get('code');");
+        client.println("  if (code) {");
+        client.println("    document.getElementById('codeValue').innerText = code;");
+        client.println("    document.getElementById('extractedCode').style.display = 'block';");
+        client.println("    document.getElementById('codeInput').value = code;");
+        client.println("    document.getElementById('autoSubmit').style.display = 'block';");
+        client.println("  }");
+        client.println("}");
+        client.println("</script>");
+        client.println("</head><body onload='extractAndSubmit()'>");
+        client.println("<div class='container'>");
+        client.println("<h1>Microsoft Teams Presence Authorization</h1>");
 
+        client.println("<div class='step'>");
+        client.println("<h2>Step 1: Sign in with Microsoft</h2>");
+        client.println("<p>Click the button below to sign in with your Microsoft account and authorize access to your Teams presence:</p>");
+        client.println("<a href='" + authURL + "' target='_blank' class='btn'>Sign in with Microsoft</a>");
+        client.println("</div>");
+
+        client.println("<div class='step'>");
+        client.println("<h2>Step 2: After authorization</h2>");
+        client.println("<p>After signing in, you'll be redirected to a <strong>blank page</strong> with a URL that contains your authorization code.</p>");
+        client.println("<p>Look at your browser's address bar - it should look something like this:</p>");
+        client.println("<div class='code-box'>https://login.microsoftonline.com/common/oauth2/nativeclient?<strong>code=M.R3_BAY...</strong>&state=12345</div>");
+        client.println("</div>");
+
+        client.println("<div id='extractedCode' style='display:none;' class='step'>");
+        client.println("<h2>✓ Code detected!</h2>");
+        client.println("<p>We've detected an authorization code in your current URL:</p>");
+        client.println("<div class='code-box' id='codeValue'></div>");
+        client.println("<p id='autoSubmit'>Click the button below to use this code:</p>");
+        client.println("<form action='/msgraph_code' method='get'>");
+        client.println("<input type='hidden' id='codeInput' name='code'>");
+        client.println("<input type='submit' value='Use this code' class='btn'>");
+        client.println("</form>");
+        client.println("</div>");
+
+        client.println("<div class='step'>");
+        client.println("<h2>Step 3: Manual entry</h2>");
+        client.println("<p>If automatic detection doesn't work, copy the <strong>entire URL</strong> from your browser's address bar after authorization:</p>");
+        client.println("<form action='/msgraph_code' method='get'>");
+        client.println("<input type='text' name='url' size='60' placeholder='https://login.microsoftonline.com/common/oauth2/nativeclient?code=...'>");
+        client.println("<input type='submit' value='Submit' class='btn' style='margin-left:10px;'>");
+        client.println("</form>");
+        client.println("</div>");
+
+        client.println("</div>");
+        client.println("</body></html>");
+    }
+    // Handle Microsoft Graph authorization code
+    else if (request.indexOf("GET /msgraph_code") >= 0) {
+        String authCode = "";
+
+        // Check if code was provided directly
+        if (request.indexOf("?code=") >= 0) {
+            authCode = extractString(request, "code=");
+            Serial.println("Direct code parameter found: " + authCode.substring(0, 10) + "...");
+        }
+        // Otherwise, try to extract from URL parameter 
+        else if (request.indexOf("?url=") >= 0) {
+            String fullURL = extractString(request, "url=");
+
+            // URL decode the input
+            fullURL.replace("%3A", ":");
+            fullURL.replace("%2F", "/");
+            fullURL.replace("%3F", "?");
+            fullURL.replace("%3D", "=");
+            fullURL.replace("%26", "&");
+
+            authCode = extractCodeFromURL(fullURL);
+            Serial.println("Extracted code from URL: " + authCode.substring(0, 10) + "...");
+        }
+
+        client.println("<!DOCTYPE html>");
+        client.println("<html><head><title>Microsoft Graph Authorization</title>");
+        client.println("<style>");
+        client.println("body{font-family:Arial,sans-serif;margin:20px;background:#222;color:#fff;line-height:1.5;}");
+        client.println("h1{color:#0078d4;} .container{max-width:600px;margin:0 auto;background:#333;padding:20px;border-radius:8px;}");
+        client.println(".success{color:#4CAF50;font-weight:bold;} .error{color:#F44336;font-weight:bold;}");
+        client.println(".btn{background:#0078d4;color:#fff;padding:10px 20px;text-decoration:none;display:inline-block;border-radius:4px;margin-top:15px;}");
+        client.println(".btn-success{background:#4CAF50;} .btn-error{background:#F44336;}");
+        client.println("</style>");
+        client.println("</head><body>");
+        client.println("<div class='container'>");
+        client.println("<h1>Microsoft Graph Authorization</h1>");
+
+        if (authCode.length() > 0) {
+            Serial.println("Processing MS Graph authorization code: " + authCode.substring(0, 10) + "...");
+
+            if (exchangeMsGraphCodeForTokens(authCode)) {
+                client.println("<p class='success'>✓ Success! Microsoft Graph tokens obtained.</p>");
+                client.println("<p>You can now use the Teams widget to display your presence status.</p>");
+                client.println("<p>The next time your device checks for Teams presence, it will display your status.</p>");
+                client.println("<a href='/' class='btn btn-success'>Return to Control Panel</a>");
+            } else {
+                client.println("<p class='error'>✗ Failed to exchange authorization code for tokens.</p>");
+                client.println("<p>This might happen if:</p>");
+                client.println("<ul>");
+                client.println("<li>The authorization code has expired (they're only valid for a short time)</li>");
+                client.println("<li>The code was already used once (codes are single-use only)</li>");
+                client.println("<li>There was a network error when contacting Microsoft's servers</li>");
+                client.println("</ul>");
+                client.println("<a href='/msgraph_auth' class='btn btn-error'>Try Again</a>");
+            }
+        } else {
+            client.println("<p class='error'>✗ No authorization code found.</p>");
+            client.println("<p>We couldn't find a valid authorization code in your request.</p>");
+            client.println("<p>Please make sure you're either:</p>");
+            client.println("<ul>");
+            client.println("<li>Using the automatic code detection on the authorization page</li>");
+            client.println("<li>Pasting the complete URL from your browser after authorizing</li>");
+            client.println("</ul>");
+            client.println("<a href='/msgraph_auth' class='btn'>Return to Authorization Page</a>");
+        }
+        client.println("</div>");
+        client.println("</body></html>");
+    }
     else {
         Serial.println("DEBUG: Unknown command: " + request);
         client.println("Unknown command");
@@ -328,6 +465,13 @@ void sendControlPage(WiFiClient client)
 
     client.println("<div id='spotifyStatus' style='margin-top: 10px; padding: 10px; background: #444; border-radius: 4px;'>");
     client.println("Click 'Get Auth URL' to start setup");
+    client.println("</div>");
+
+    // Microsoft Teams Auth Section
+    client.println("<div class='section'>");
+    client.println("<h3>Microsoft Teams Integration:</h3>");
+    client.println("<button class='widget-btn' style='background:#0078d4;' onclick='window.location.href=\"/msgraph_auth\"'>🔑 Authorize Teams</button>");
+    client.println("<p>Connect to Microsoft Teams to display your presence status.</p>");
     client.println("</div>");
     client.println("</div>");
 

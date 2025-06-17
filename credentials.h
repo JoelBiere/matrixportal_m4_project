@@ -15,4 +15,8 @@ extern char timeZone[];
 extern char spotifyClientId[];
 extern char spotifyClientSecret[];
 
+// Microsoft Graph API credentials
+extern char msGraphClientId[];
+extern char msGraphClientSecret[];
+
 #endif

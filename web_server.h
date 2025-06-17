@@ -17,4 +17,10 @@ void sendControlPage(WiFiClient client);
 int extractParameter(String request, String param);
 String extractString(String request, String param);
 
+// Helper function for URL extraction (used for auth codes)
+String extractCodeFromURL(String url);
+
+// IP address to string converter (replacement for toString)
+String ipAddressToString(IPAddress ip);
+
 #endif
